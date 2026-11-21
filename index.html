@@ -67,7 +67,30 @@ async function pullFromGist(notify = false) {
     }
   } catch (e) { if (notify) showToast("Gist pull error: " + e.message); }
 }
-pullFromGist(false);
+
+  window.refreshLivePrices = function() {
+    const btn = document.getElementById("refreshBtn");
+    if (btn) { btn.disabled = true; btn.textContent = "↻ Refreshing..."; }
+    const oldScript = document.getElementById("liveDataScript");
+    if (oldScript) oldScript.remove();
+    const s = document.createElement("script");
+    s.id = "liveDataScript";
+    s.src = "live_data.js?t=" + Date.now();
+    s.onload = async () => {
+      if (typeof applyLiveData === "function") applyLiveData();
+      if (typeof renderTable === "function") renderTable();
+      await window.pullFromGist(false);
+      if (btn) { btn.disabled = false; btn.textContent = "↻ Refresh Live Prices"; }
+      if (typeof showToast === "function") showToast("Live prices refreshed!");
+    };
+    s.onerror = () => {
+      if (btn) { btn.disabled = false; btn.textContent = "↻ Refresh Live Prices"; }
+      if (typeof showToast === "function") showToast("Could not load live_data.js");
+    };
+    document.head.appendChild(s);
+  };
+
+  pullFromGist(false);
 
 </script>
 <style>
@@ -473,6 +496,29 @@ th:nth-child(3) { background: var(--card2); z-index: 3; }
         }
       }
     } catch (e) { if (notify) showToast("Gist pull error: " + e.message); }
+  };
+
+  
+  window.refreshLivePrices = function() {
+    const btn = document.getElementById("refreshBtn");
+    if (btn) { btn.disabled = true; btn.textContent = "↻ Refreshing..."; }
+    const oldScript = document.getElementById("liveDataScript");
+    if (oldScript) oldScript.remove();
+    const s = document.createElement("script");
+    s.id = "liveDataScript";
+    s.src = "live_data.js?t=" + Date.now();
+    s.onload = async () => {
+      if (typeof applyLiveData === "function") applyLiveData();
+      if (typeof renderTable === "function") renderTable();
+      await window.pullFromGist(false);
+      if (btn) { btn.disabled = false; btn.textContent = "↻ Refresh Live Prices"; }
+      if (typeof showToast === "function") showToast("Live prices refreshed!");
+    };
+    s.onerror = () => {
+      if (btn) { btn.disabled = false; btn.textContent = "↻ Refresh Live Prices"; }
+      if (typeof showToast === "function") showToast("Could not load live_data.js");
+    };
+    document.head.appendChild(s);
   };
 
   pullFromGist(false);
