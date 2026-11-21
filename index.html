@@ -4,7 +4,72 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Interactive Watchlist • Value Investing Matrix & DCF Calculator</title>
-<script id="liveDataScript" src="live_data.js" onerror="window.LIVE_LOAD_FAILED=true"></script>
+<script id="liveDataScript" src="live_data.js" onerror="window.LIVE_LOAD_FAILED=true">
+let gistTimer = null;
+const _origSaveState = saveState;
+saveState = function(skipCloud = false) {
+  _origSaveState();
+  if (!skipCloud) scheduleGistPush();
+};
+function getGistCfg() { return JSON.parse(localStorage.getItem("wl_gist_cfg") || "{}"); }
+function openGistModal() {
+  const c = getGistCfg();
+  document.getElementById("gistToken").value = c.token || "";
+  document.getElementById("gistId").value = c.gistId || "";
+  document.getElementById("gistModal").style.display = "flex";
+}
+async function saveGistSettings() {
+  const token = document.getElementById("gistToken").value.trim();
+  const gistId = document.getElementById("gistId").value.trim();
+  localStorage.setItem("wl_gist_cfg", JSON.stringify({ token, gistId }));
+  document.getElementById("gistModal").style.display = "none";
+  if (!token) return showToast("Cloud sync disabled");
+  if (gistId) await pullFromGist(true); else await pushToGist(true);
+}
+function scheduleGistPush() {
+  if (!getGistCfg().token) return;
+  clearTimeout(gistTimer);
+  gistTimer = setTimeout(() => pushToGist(false), 1500);
+}
+async function pushToGist(notify = false) {
+  const c = getGistCfg();
+  if (!c.token) return;
+  const body = { description: "Watchlist Sync", public: false, files: { "watchlist_state.json": { content: JSON.stringify(state, null, 2) } } };
+  try {
+    const url = c.gistId ? `https://github.com{c.gistId}` : "https://github.com";
+    const res = await fetch(url, {
+      method: c.gistId ? "PATCH" : "POST",
+      headers: { "Accept": "application/vnd.github+json", "Authorization": `Bearer ${c.token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    if (!c.gistId && data.id) {
+      localStorage.setItem("wl_gist_cfg", JSON.stringify({ token: c.token, gistId: data.id }));
+      if (notify) alert("Created Secret Gist! Copy this Gist ID for your phone:\n\n" + data.id);
+    } else if (notify) showToast("Synced watchlist to Secret Gist!");
+  } catch (e) { if (notify) showToast("Gist sync error: " + e.message); }
+}
+async function pullFromGist(notify = false) {
+  const c = getGistCfg();
+  if (!c.token || !c.gistId) return;
+  try {
+    const res = await fetch(`https://github.com{c.gistId}?t=${Date.now()}`, {
+      headers: { "Accept": "application/vnd.github+json", "Authorization": `Bearer ${c.token}` }
+    });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    const raw = data.files && data.files["watchlist_state.json"] && data.files["watchlist_state.json"].content;
+    if (raw) {
+      state = JSON.parse(raw);
+      saveState(true); applyLiveData(); renderTable();
+      if (notify) showToast("Pulled latest watchlist from Secret Gist!");
+    }
+  } catch (e) { if (notify) showToast("Gist pull error: " + e.message); }
+}
+pullFromGist(false);
+
+</script>
 <style>
   :root {
     --bg: #0f172a; --card: #1e293b; --card2: #263348; --border: #334155;
@@ -92,7 +157,7 @@ th:nth-child(3) { background: var(--card2); z-index: 3; }
     <div class="header-right">
     <div class="status-pill" id="syncStatus">Saved Locally • Snapshot: 21 Nov 2026</div>
      <button class="btn-refresh" id="refreshBtn" onclick="refreshLivePrices()">↻ Refresh Live Prices</button>
-     <button class="btn" title="Configure Cross-Device Gist Sync" onclick="openGistModal()">☁ Sync</button>
+      <button class="btn" title="Cross-Device Sync" onclick="openGistModal()">☁ Sync</button>
     </div>
   </header>
 
@@ -272,6 +337,8 @@ th:nth-child(3) { background: var(--card2); z-index: 3; }
   <span id="toastMsg">Deleted</span>
   <button class="btn" onclick="undoDelete()">Undo</button>
 </div>
+
+
 <div id="gistModal" class="modal-bg">
   <div class="modal">
     <div style="display:flex;justify-content:space-between;align-items:center">
@@ -279,16 +346,16 @@ th:nth-child(3) { background: var(--card2); z-index: 3; }
       <button class="btn" style="padding:4px 9px" onclick="document.getElementById('gistModal').style.display='none'">✕</button>
     </div>
     <p style="font-size:.82rem;color:var(--muted);line-height:1.45">
-      Sync added/deleted stocks, row order, and custom DCF inputs across all devices using a private GitHub Gist.
+      Paste your GitHub Personal Access Token (<code>gist</code> scope) to sync your watchlist across all devices.
     </p>
     <div class="form-grid">
       <div class="field" style="grid-column:1/-1">
-        <label>GitHub Personal Access Token (<code>gist</code> scope only)</label>
-        <input id="gistToken" type="password" placeholder="ghp_... or github_pat_..." />
+        <label>GitHub Personal Access Token (gist scope)</label>
+        <input id="gistToken" type="password" placeholder="ghp_..." />
       </div>
       <div class="field" style="grid-column:1/-1">
         <label>Secret Gist ID (Leave blank on first device to auto-create)</label>
-        <input id="gistId" placeholder="e.g. a1b2c3d4e5f67890..." />
+        <input id="gistId" placeholder="Auto-generated on first Save & Sync" />
       </div>
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
@@ -367,104 +434,13 @@ function loadState() {
   };
 }
 
-let gistTimer = null;
-
-function saveState(skipCloud = false) {
-  const s = JSON.stringify(state);
-  try { localStorage.setItem(STORAGE_KEY, s); } catch (e) {}
-  try { window.name = "WL_STATE:" + s; } catch (e) {}
+function saveState() {
+  const serialized = JSON.stringify(state);
+  try { localStorage.setItem(STORAGE_KEY, serialized); } catch (e) {}
+  try { window.name = "WL_STATE:" + serialized; } catch (e) {}
+  const pill = document.getElementById("syncStatus");
   if (!window.LIVE_WATCHLIST_DATA) {
-    document.getElementById("syncStatus").textContent =
-      "Saved Locally • " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  }
-  if (!skipCloud) scheduleGistPush();
-}
-
-function getGistCfg() {
-  return JSON.parse(localStorage.getItem("wl_gist_cfg") || "{}");
-}
-
-function openGistModal() {
-  const c = getGistCfg();
-  document.getElementById("gistToken").value = c.token || "";
-  document.getElementById("gistId").value = c.gistId || "";
-  document.getElementById("gistModal").style.display = "flex";
-}
-
-async function saveGistSettings() {
-  const token = document.getElementById("gistToken").value.trim();
-  const gistId = document.getElementById("gistId").value.trim();
-  localStorage.setItem("wl_gist_cfg", JSON.stringify({ token, gistId }));
-  document.getElementById("gistModal").style.display = "none";
-  if (!token) return showToast("Cloud sync disabled");
-  if (gistId) {
-    await pullFromGist(true);
-  } else {
-    await pushToGist(true);
-  }
-}
-
-function scheduleGistPush() {
-  const c = getGistCfg();
-  if (!c.token) return;
-  clearTimeout(gistTimer);
-  gistTimer = setTimeout(() => pushToGist(false), 1500);
-}
-
-async function pushToGist(notify = false) {
-  const c = getGistCfg();
-  if (!c.token) return;
-  const body = {
-    description: "Watchlist Cross-Device Sync State",
-    public: false,
-    files: { "watchlist_state.json": { content: JSON.stringify(state, null, 2) } }
-  };
-  try {
-    const url = c.gistId ? `https://github.com{c.gistId}` : "https://github.com";
-    const res = await fetch(url, {
-      method: c.gistId ? "PATCH" : "POST",
-      headers: {
-        "Accept": "application/vnd.github+json",
-        "Authorization": `Bearer ${c.token}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(body)
-    });
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    const data = await res.json();
-    if (!c.gistId && data.id) {
-      localStorage.setItem("wl_gist_cfg", JSON.stringify({ token: c.token, gistId: data.id }));
-      if (notify) alert("Created Secret Gist! Copy this Gist ID for your other devices:\n\n" + data.id);
-    } else if (notify) {
-      showToast("Synced watchlist to Secret Gist!");
-    }
-  } catch (e) {
-    if (notify) showToast("Gist sync error: " + e.message);
-  }
-}
-
-async function pullFromGist(notify = false) {
-  const c = getGistCfg();
-  if (!c.token || !c.gistId) return;
-  try {
-    const res = await fetch(`https://github.com{c.gistId}?t=${Date.now()}`, {
-      headers: {
-        "Accept": "application/vnd.github+json",
-        "Authorization": `Bearer ${c.token}`
-      }
-    });
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    const data = await res.json();
-    const raw = data.files?.["watchlist_state.json"]?.content;
-    if (raw) {
-      state = JSON.parse(raw);
-      saveState(true); // Save locally without re-triggering push
-      applyLiveData(); // Re-apply latest live_data.js market prices on top
-      renderTable();
-      if (notify) showToast("Pulled latest watchlist from Secret Gist!");
-    }
-  } catch (e) {
-    if (notify) showToast("Gist pull error: " + e.message);
+    pill.textContent = "Saved Locally • " + new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
   }
 }
 
@@ -498,7 +474,6 @@ function refreshLivePrices() {
     renderTable();
     btn.disabled = false;
     btn.textContent = "↻ Refresh Live Prices";
-    await pullFromGist(false);
     showToast("Live prices refreshed from live_data.js!");
   };
 
@@ -946,7 +921,6 @@ function resetDefaults() {
 
 applyLiveData();
 renderTable();
-pullFromGist(false);
 </script>
 </body>
 </html>
