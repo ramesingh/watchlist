@@ -369,8 +369,26 @@ th:nth-child(3) { background: var(--card2); z-index: 3; }
 </div>
 <script>
 (function() {
-  const GIST_API = ["https:/", "api.github.com", "gists"].join("/");
+  const GIST_API = ["https:/", "://github.com", "gists"].join("/");
   let gistTimer = null;
+
+  function readLocalState() {
+    for (const k of ["wl_v8_state", "wl_v7_state", "wl_v6_state", "wl_v4_state"]) {
+      const raw = localStorage.getItem(k);
+      if (raw) { try { return JSON.parse(raw); } catch (e) {} }
+    }
+    if (window.name && window.name.startsWith("WL_STATE:")) {
+      try { return JSON.parse(window.name.slice(9)); } catch (e) {}
+    }
+    return { US: [], INDIA: [], GOLD: [] };
+  }
+
+  function writeLocalState(obj) {
+    const str = JSON.stringify(obj);
+    localStorage.setItem("wl_v8_state", str);
+    try { window.name = "WL_STATE:" + str; } catch (e) {}
+  }
+
   if (typeof saveState === "function") {
     const _origSave = saveState;
     window.saveState = function(skipCloud = false) {
@@ -378,18 +396,21 @@ th:nth-child(3) { background: var(--card2); z-index: 3; }
       if (!skipCloud) scheduleGistPush();
     };
   }
+
   function getGistCfg() {
     const cfg = JSON.parse(localStorage.getItem("wl_gist_cfg") || "{}");
     if (cfg.token) cfg.token = cfg.token.replace(/[^\x21-\x7E]/g, "");
     if (cfg.gistId) cfg.gistId = cfg.gistId.replace(/[^a-zA-Z0-9]/g, "");
     return cfg;
   }
+
   window.openGistModal = function() {
     const c = getGistCfg();
     document.getElementById("gistToken").value = c.token || "";
     document.getElementById("gistId").value = c.gistId || "";
     document.getElementById("gistModal").style.display = "flex";
   };
+
   window.saveGistSettings = async function() {
     const token = document.getElementById("gistToken").value.replace(/[^\x21-\x7E]/g, "");
     const gistId = document.getElementById("gistId").value.replace(/[^a-zA-Z0-9]/g, "");
@@ -398,15 +419,22 @@ th:nth-child(3) { background: var(--card2); z-index: 3; }
     if (!token) return showToast("Cloud sync disabled");
     if (gistId) await pullFromGist(true); else await pushToGist(true);
   };
+
   function scheduleGistPush() {
     if (!getGistCfg().token) return;
     clearTimeout(gistTimer);
     gistTimer = setTimeout(() => pushToGist(false), 1500);
   }
+
   window.pushToGist = async function(notify = false) {
     const c = getGistCfg();
     if (!c.token) return;
-    const body = { description: "Watchlist Sync", public: false, files: { "watchlist_state.json": { content: JSON.stringify(state, null, 2) } } };
+    const currentData = readLocalState();
+    const body = {
+      description: "Watchlist Sync",
+      public: false,
+      files: { "watchlist_state.json": { content: JSON.stringify(currentData, null, 2) } }
+    };
     try {
       const url = c.gistId ? `${GIST_API}/${c.gistId}` : GIST_API;
       const res = await fetch(url, {
@@ -422,6 +450,7 @@ th:nth-child(3) { background: var(--card2); z-index: 3; }
       } else if (notify) showToast("Synced watchlist to Secret Gist!");
     } catch (e) { if (notify) showToast("Gist sync error: " + e.message); }
   };
+
   window.pullFromGist = async function(notify = false) {
     const c = getGistCfg();
     if (!c.token || !c.gistId) return;
@@ -433,14 +462,19 @@ th:nth-child(3) { background: var(--card2); z-index: 3; }
       const data = await res.json();
       const raw = data.files && data.files["watchlist_state.json"] && data.files["watchlist_state.json"].content;
       if (raw) {
-        state = JSON.parse(raw);
-        window.saveState(true);
-        if (typeof applyLiveData === "function") applyLiveData();
-        if (typeof renderTable === "function") renderTable();
-        if (notify) showToast("Pulled latest watchlist from Secret Gist!");
+        const parsed = JSON.parse(raw);
+        const prev = JSON.stringify(readLocalState());
+        const next = JSON.stringify(parsed);
+        writeLocalState(parsed);
+        if (prev !== next) {
+          location.reload();
+        } else if (notify) {
+          showToast("Watchlist is already up to date!");
+        }
       }
     } catch (e) { if (notify) showToast("Gist pull error: " + e.message); }
   };
+
   pullFromGist(false);
 })();
 </script>
