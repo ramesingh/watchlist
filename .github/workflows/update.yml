@@ -1,0 +1,38 @@
+name: Update Watchlist Prices
+
+on:
+  schedule:
+    # Runs Monday–Friday at 6:30 PM IST (13:00 UTC) after NSE/BSE & IBJA close
+    - cron: "0 13 * * 1-5"
+    # Runs Monday–Friday at 2:00 AM IST (20:30 UTC) after US markets close
+    - cron: "30 20 * * 1-5"
+  workflow_dispatch: # Allows manual runs from GitHub's Actions tab
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install yfinance requests beautifulsoup4
+
+      - name: Fetch latest stock & gold prices
+        run: python update_watchlist.py
+
+      - name: Commit updated live_data.js
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add live_data.js
+          git commit -m "Auto-update daily prices" || exit 0
+          git push
