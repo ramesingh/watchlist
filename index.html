@@ -922,5 +922,106 @@ function resetDefaults() {
 applyLiveData();
 renderTable();
 </script>
+
+<div id="gistModal" class="modal-bg">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h3 style="margin:0">Cross-Device Sync (Secret GitHub Gist)</h3>
+      <button class="btn" style="padding:4px 9px" onclick="document.getElementById('gistModal').style.display='none'">✕</button>
+    </div>
+    <p style="font-size:.82rem;color:var(--muted);line-height:1.45">
+      Paste your GitHub Personal Access Token (<code>gist</code> scope) to sync your watchlist across all devices.
+    </p>
+    <div class="form-grid">
+      <div class="field" style="grid-column:1/-1">
+        <label>GitHub Personal Access Token (gist scope)</label>
+        <input id="gistToken" type="password" placeholder="ghp_..." />
+      </div>
+      <div class="field" style="grid-column:1/-1">
+        <label>Secret Gist ID (Leave blank on first device to auto-create)</label>
+        <input id="gistId" placeholder="Auto-generated on first Save & Sync" />
+      </div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <button class="btn" onclick="pullFromGist(true)">↓ Pull Now</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn" onclick="document.getElementById('gistModal').style.display='none'">Cancel</button>
+        <button class="btn" style="background:var(--accent);color:#0f172a" onclick="saveGistSettings()">Save & Sync</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function() {
+  let gistTimer = null;
+  if (typeof saveState === "function") {
+    const _origSave = saveState;
+    window.saveState = function(skipCloud = false) {
+      _origSave();
+      if (!skipCloud) scheduleGistPush();
+    };
+  }
+  function getGistCfg() { return JSON.parse(localStorage.getItem("wl_gist_cfg") || "{}"); }
+  window.openGistModal = function() {
+    const c = getGistCfg();
+    document.getElementById("gistToken").value = c.token || "";
+    document.getElementById("gistId").value = c.gistId || "";
+    document.getElementById("gistModal").style.display = "flex";
+  };
+  window.saveGistSettings = async function() {
+    const token = document.getElementById("gistToken").value.trim();
+    const gistId = document.getElementById("gistId").value.trim();
+    localStorage.setItem("wl_gist_cfg", JSON.stringify({ token, gistId }));
+    document.getElementById("gistModal").style.display = "none";
+    if (!token) return showToast("Cloud sync disabled");
+    if (gistId) await pullFromGist(true); else await pushToGist(true);
+  };
+  function scheduleGistPush() {
+    if (!getGistCfg().token) return;
+    clearTimeout(gistTimer);
+    gistTimer = setTimeout(() => pushToGist(false), 1500);
+  }
+  window.pushToGist = async function(notify = false) {
+    const c = getGistCfg();
+    if (!c.token) return;
+    const body = { description: "Watchlist Sync", public: false, files: { "watchlist_state.json": { content: JSON.stringify(state, null, 2) } } };
+    try {
+      const url = c.gistId ? `https://github.com{c.gistId}` : "https://github.com";
+      const res = await fetch(url, {
+        method: c.gistId ? "PATCH" : "POST",
+        headers: { "Accept": "application/vnd.github+json", "Authorization": `Bearer ${c.token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      if (!c.gistId && data.id) {
+        localStorage.setItem("wl_gist_cfg", JSON.stringify({ token: c.token, gistId: data.id }));
+        if (notify) alert("Created Secret Gist! Copy this Gist ID for your phone:\n\n" + data.id);
+      } else if (notify) showToast("Synced watchlist to Secret Gist!");
+    } catch (e) { if (notify) showToast("Gist sync error: " + e.message); }
+  };
+  window.pullFromGist = async function(notify = false) {
+    const c = getGistCfg();
+    if (!c.token || !c.gistId) return;
+    try {
+      const res = await fetch(`https://github.com{c.gistId}?t=${Date.now()}`, {
+        headers: { "Accept": "application/vnd.github+json", "Authorization": `Bearer ${c.token}` }
+      });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      const raw = data.files && data.files["watchlist_state.json"] && data.files["watchlist_state.json"].content;
+      if (raw) {
+        state = JSON.parse(raw);
+        window.saveState(true);
+        if (typeof applyLiveData === "function") applyLiveData();
+        if (typeof renderTable === "function") renderTable();
+        if (notify) showToast("Pulled latest watchlist from Secret Gist!");
+      }
+    } catch (e) { if (notify) showToast("Gist pull error: " + e.message); }
+  };
+  pullFromGist(false);
+})();
+</script>
+
 </body>
 </html>
