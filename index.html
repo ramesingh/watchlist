@@ -19,7 +19,7 @@ function openGistModal() {
   document.getElementById("gistModal").style.display = "flex";
 }
 async function saveGistSettings() {
-  const token = document.getElementById("gistToken").value.trim();
+  const token = document.getElementById("gistToken").value.replace(/[^\x21-\x7E]/g, "");
   const gistId = document.getElementById("gistId").value.trim();
   localStorage.setItem("wl_gist_cfg", JSON.stringify({ token, gistId }));
   document.getElementById("gistModal").style.display = "none";
@@ -39,7 +39,7 @@ async function pushToGist(notify = false) {
     const url = c.gistId ? `https://github.com{c.gistId}` : "https://github.com";
     const res = await fetch(url, {
       method: c.gistId ? "PATCH" : "POST",
-      headers: { "Accept": "application/vnd.github+json", "Authorization": `Bearer ${c.token}`, "Content-Type": "application/json" },
+      headers: { "Accept": "application/vnd.github+json", "Authorization": `token ${c.token.replace(/[^\x21-\x7E]/g, "")}`, "Content-Type": "application/json" },
       body: JSON.stringify(body)
     });
     if (!res.ok) throw new Error("HTTP " + res.status);
@@ -55,7 +55,7 @@ async function pullFromGist(notify = false) {
   if (!c.token || !c.gistId) return;
   try {
     const res = await fetch(`https://github.com{c.gistId}?t=${Date.now()}`, {
-      headers: { "Accept": "application/vnd.github+json", "Authorization": `Bearer ${c.token}` }
+      headers: { "Accept": "application/vnd.github+json", "Authorization": `token ${c.token.replace(/[^\x21-\x7E]/g, "")}` }
     });
     if (!res.ok) throw new Error("HTTP " + res.status);
     const data = await res.json();
@@ -969,7 +969,7 @@ renderTable();
     document.getElementById("gistModal").style.display = "flex";
   };
   window.saveGistSettings = async function() {
-    const token = document.getElementById("gistToken").value.trim();
+    const token = document.getElementById("gistToken").value.replace(/[^\x21-\x7E]/g, "");
     const gistId = document.getElementById("gistId").value.trim();
     localStorage.setItem("wl_gist_cfg", JSON.stringify({ token, gistId }));
     document.getElementById("gistModal").style.display = "none";
@@ -989,7 +989,7 @@ renderTable();
       const url = c.gistId ? `https://github.com{c.gistId}` : "https://github.com";
       const res = await fetch(url, {
         method: c.gistId ? "PATCH" : "POST",
-        headers: { "Accept": "application/vnd.github+json", "Authorization": `Bearer ${c.token}`, "Content-Type": "application/json" },
+        headers: { "Accept": "application/vnd.github+json", "Authorization": `token ${c.token.replace(/[^\x21-\x7E]/g, "")}`, "Content-Type": "application/json" },
         body: JSON.stringify(body)
       });
       if (!res.ok) throw new Error("HTTP " + res.status);
@@ -1005,7 +1005,7 @@ renderTable();
     if (!c.token || !c.gistId) return;
     try {
       const res = await fetch(`https://github.com{c.gistId}?t=${Date.now()}`, {
-        headers: { "Accept": "application/vnd.github+json", "Authorization": `Bearer ${c.token}` }
+        headers: { "Accept": "application/vnd.github+json", "Authorization": `token ${c.token.replace(/[^\x21-\x7E]/g, "")}` }
       });
       if (!res.ok) throw new Error("HTTP " + res.status);
       const data = await res.json();
