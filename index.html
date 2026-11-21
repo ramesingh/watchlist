@@ -92,6 +92,7 @@ th:nth-child(3) { background: var(--card2); z-index: 3; }
     <div class="header-right">
     <div class="status-pill" id="syncStatus">Saved Locally • Snapshot: 21 Nov 2026</div>
      <button class="btn-refresh" id="refreshBtn" onclick="refreshLivePrices()">↻ Refresh Live Prices</button>
+     <button class="btn" title="Configure Cross-Device Gist Sync" onclick="openGistModal()">☁ Sync</button>
     </div>
   </header>
 
@@ -271,6 +272,34 @@ th:nth-child(3) { background: var(--card2); z-index: 3; }
   <span id="toastMsg">Deleted</span>
   <button class="btn" onclick="undoDelete()">Undo</button>
 </div>
+<div id="gistModal" class="modal-bg">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h3 style="margin:0">Cross-Device Sync (Secret GitHub Gist)</h3>
+      <button class="btn" style="padding:4px 9px" onclick="document.getElementById('gistModal').style.display='none'">✕</button>
+    </div>
+    <p style="font-size:.82rem;color:var(--muted);line-height:1.45">
+      Sync added/deleted stocks, row order, and custom DCF inputs across all devices using a private GitHub Gist.
+    </p>
+    <div class="form-grid">
+      <div class="field" style="grid-column:1/-1">
+        <label>GitHub Personal Access Token (<code>gist</code> scope only)</label>
+        <input id="gistToken" type="password" placeholder="ghp_... or github_pat_..." />
+      </div>
+      <div class="field" style="grid-column:1/-1">
+        <label>Secret Gist ID (Leave blank on first device to auto-create)</label>
+        <input id="gistId" placeholder="e.g. a1b2c3d4e5f67890..." />
+      </div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <button class="btn" onclick="pullFromGist(true)">↓ Pull Now</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn" onclick="document.getElementById('gistModal').style.display='none'">Cancel</button>
+        <button class="btn" style="background:var(--accent);color:#0f172a" onclick="saveGistSettings()">Save & Sync</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script>
 const CATALOG = {
@@ -338,13 +367,104 @@ function loadState() {
   };
 }
 
-function saveState() {
-  const serialized = JSON.stringify(state);
-  try { localStorage.setItem(STORAGE_KEY, serialized); } catch (e) {}
-  try { window.name = "WL_STATE:" + serialized; } catch (e) {}
-  const pill = document.getElementById("syncStatus");
+let gistTimer = null;
+
+function saveState(skipCloud = false) {
+  const s = JSON.stringify(state);
+  try { localStorage.setItem(STORAGE_KEY, s); } catch (e) {}
+  try { window.name = "WL_STATE:" + s; } catch (e) {}
   if (!window.LIVE_WATCHLIST_DATA) {
-    pill.textContent = "Saved Locally • " + new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    document.getElementById("syncStatus").textContent =
+      "Saved Locally • " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }
+  if (!skipCloud) scheduleGistPush();
+}
+
+function getGistCfg() {
+  return JSON.parse(localStorage.getItem("wl_gist_cfg") || "{}");
+}
+
+function openGistModal() {
+  const c = getGistCfg();
+  document.getElementById("gistToken").value = c.token || "";
+  document.getElementById("gistId").value = c.gistId || "";
+  document.getElementById("gistModal").style.display = "flex";
+}
+
+async function saveGistSettings() {
+  const token = document.getElementById("gistToken").value.trim();
+  const gistId = document.getElementById("gistId").value.trim();
+  localStorage.setItem("wl_gist_cfg", JSON.stringify({ token, gistId }));
+  document.getElementById("gistModal").style.display = "none";
+  if (!token) return showToast("Cloud sync disabled");
+  if (gistId) {
+    await pullFromGist(true);
+  } else {
+    await pushToGist(true);
+  }
+}
+
+function scheduleGistPush() {
+  const c = getGistCfg();
+  if (!c.token) return;
+  clearTimeout(gistTimer);
+  gistTimer = setTimeout(() => pushToGist(false), 1500);
+}
+
+async function pushToGist(notify = false) {
+  const c = getGistCfg();
+  if (!c.token) return;
+  const body = {
+    description: "Watchlist Cross-Device Sync State",
+    public: false,
+    files: { "watchlist_state.json": { content: JSON.stringify(state, null, 2) } }
+  };
+  try {
+    const url = c.gistId ? `https://github.com{c.gistId}` : "https://github.com";
+    const res = await fetch(url, {
+      method: c.gistId ? "PATCH" : "POST",
+      headers: {
+        "Accept": "application/vnd.github+json",
+        "Authorization": `Bearer ${c.token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    if (!c.gistId && data.id) {
+      localStorage.setItem("wl_gist_cfg", JSON.stringify({ token: c.token, gistId: data.id }));
+      if (notify) alert("Created Secret Gist! Copy this Gist ID for your other devices:\n\n" + data.id);
+    } else if (notify) {
+      showToast("Synced watchlist to Secret Gist!");
+    }
+  } catch (e) {
+    if (notify) showToast("Gist sync error: " + e.message);
+  }
+}
+
+async function pullFromGist(notify = false) {
+  const c = getGistCfg();
+  if (!c.token || !c.gistId) return;
+  try {
+    const res = await fetch(`https://github.com{c.gistId}?t=${Date.now()}`, {
+      headers: {
+        "Accept": "application/vnd.github+json",
+        "Authorization": `Bearer ${c.token}`
+      }
+    });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    const raw = data.files?.["watchlist_state.json"]?.content;
+    if (raw) {
+      state = JSON.parse(raw);
+      saveState(true); // Save locally without re-triggering push
+      applyLiveData(); // Re-apply latest live_data.js market prices on top
+      renderTable();
+      if (notify) showToast("Pulled latest watchlist from Secret Gist!");
+    }
+  } catch (e) {
+    if (notify) showToast("Gist pull error: " + e.message);
   }
 }
 
@@ -378,6 +498,7 @@ function refreshLivePrices() {
     renderTable();
     btn.disabled = false;
     btn.textContent = "↻ Refresh Live Prices";
+    await pullFromGist(false);
     showToast("Live prices refreshed from live_data.js!");
   };
 
@@ -825,6 +946,7 @@ function resetDefaults() {
 
 applyLiveData();
 renderTable();
+pullFromGist(false);
 </script>
 </body>
 </html>
