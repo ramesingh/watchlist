@@ -4,95 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Interactive Watchlist • Value Investing Matrix & DCF Calculator</title>
-<script id="liveDataScript" src="live_data.js" onerror="window.LIVE_LOAD_FAILED=true">
-let gistTimer = null;
-const _origSaveState = saveState;
-saveState = function(skipCloud = false) {
-  _origSaveState();
-  if (!skipCloud) scheduleGistPush();
-};
-function getGistCfg() { return JSON.parse(localStorage.getItem("wl_gist_cfg") || "{}"); }
-function openGistModal() {
-  const c = getGistCfg();
-  document.getElementById("gistToken").value = c.token || "";
-  document.getElementById("gistId").value = c.gistId || "";
-  document.getElementById("gistModal").style.display = "flex";
-}
-async function saveGistSettings() {
-  const token = document.getElementById("gistToken").value.replace(/[^\x21-\x7E]/g, "");
-  const gistId = document.getElementById("gistId").value.trim();
-  localStorage.setItem("wl_gist_cfg", JSON.stringify({ token, gistId }));
-  document.getElementById("gistModal").style.display = "none";
-  if (!token) return showToast("Cloud sync disabled");
-  if (gistId) await pullFromGist(true); else await pushToGist(true);
-}
-function scheduleGistPush() {
-  if (!getGistCfg().token) return;
-  clearTimeout(gistTimer);
-  gistTimer = setTimeout(() => pushToGist(false), 1500);
-}
-async function pushToGist(notify = false) {
-  const c = getGistCfg();
-  if (!c.token) return;
-  const body = { description: "Watchlist Sync", public: false, files: { "watchlist_state.json": { content: JSON.stringify(state, null, 2) } } };
-  try {
-    const url = c.gistId ? `https://github.com{c.gistId}` : "https://github.com";
-    const res = await fetch(url, {
-      method: c.gistId ? "PATCH" : "POST",
-      headers: { "Accept": "application/vnd.github+json", "Authorization": `token ${c.token.replace(/[^\x21-\x7E]/g, "")}`, "Content-Type": "application/json" },
-      body: JSON.stringify(body)
-    });
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    const data = await res.json();
-    if (!c.gistId && data.id) {
-      localStorage.setItem("wl_gist_cfg", JSON.stringify({ token: c.token, gistId: data.id }));
-      if (notify) alert("Created Secret Gist! Copy this Gist ID for your phone:\n\n" + data.id);
-    } else if (notify) showToast("Synced watchlist to Secret Gist!");
-  } catch (e) { if (notify) showToast("Gist sync error: " + e.message); }
-}
-async function pullFromGist(notify = false) {
-  const c = getGistCfg();
-  if (!c.token || !c.gistId) return;
-  try {
-    const res = await fetch(`https://github.com{c.gistId}?t=${Date.now()}`, {
-      headers: { "Accept": "application/vnd.github+json", "Authorization": `token ${c.token.replace(/[^\x21-\x7E]/g, "")}` }
-    });
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    const data = await res.json();
-    const raw = data.files && data.files["watchlist_state.json"] && data.files["watchlist_state.json"].content;
-    if (raw) {
-      state = JSON.parse(raw);
-      saveState(true); applyLiveData(); renderTable();
-      if (notify) showToast("Pulled latest watchlist from Secret Gist!");
-    }
-  } catch (e) { if (notify) showToast("Gist pull error: " + e.message); }
-}
-
-  window.refreshLivePrices = function() {
-    const btn = document.getElementById("refreshBtn");
-    if (btn) { btn.disabled = true; btn.textContent = "↻ Refreshing..."; }
-    const oldScript = document.getElementById("liveDataScript");
-    if (oldScript) oldScript.remove();
-    const s = document.createElement("script");
-    s.id = "liveDataScript";
-    s.src = "live_data.js?t=" + Date.now();
-    s.onload = async () => {
-      if (typeof applyLiveData === "function") applyLiveData();
-      if (typeof renderTable === "function") renderTable();
-      await window.pullFromGist(false);
-      if (btn) { btn.disabled = false; btn.textContent = "↻ Refresh Live Prices"; }
-      if (typeof showToast === "function") showToast("Live prices refreshed!");
-    };
-    s.onerror = () => {
-      if (btn) { btn.disabled = false; btn.textContent = "↻ Refresh Live Prices"; }
-      if (typeof showToast === "function") showToast("Could not load live_data.js");
-    };
-    document.head.appendChild(s);
-  };
-
-  pullFromGist(false);
-
-</script>
+<script id="liveDataScript" src="live_data.js" onerror="window.LIVE_LOAD_FAILED=true"></script>
 <style>
   :root {
     --bg: #0f172a; --card: #1e293b; --card2: #263348; --border: #334155;
@@ -180,7 +92,6 @@ th:nth-child(3) { background: var(--card2); z-index: 3; }
     <div class="header-right">
     <div class="status-pill" id="syncStatus">Saved Locally • Snapshot: 21 Nov 2026</div>
      <button class="btn-refresh" id="refreshBtn" onclick="refreshLivePrices()">↻ Refresh Live Prices</button>
-      <button class="btn" title="Cross-Device Sync" onclick="openGistModal()">☁ Sync</button>
     </div>
   </header>
 
@@ -361,167 +272,559 @@ th:nth-child(3) { background: var(--card2); z-index: 3; }
   <button class="btn" onclick="undoDelete()">Undo</button>
 </div>
 
-
-<div id="gistModal" class="modal-bg">
-  <div class="modal">
-    <div style="display:flex;justify-content:space-between;align-items:center">
-      <h3 style="margin:0">Cross-Device Sync (Secret GitHub Gist)</h3>
-      <button class="btn" style="padding:4px 9px" onclick="document.getElementById('gistModal').style.display='none'">✕</button>
-    </div>
-    <p style="font-size:.82rem;color:var(--muted);line-height:1.45">
-      Paste your GitHub Personal Access Token (<code>gist</code> scope) to sync your watchlist across all devices.
-    </p>
-    <div class="form-grid">
-      <div class="field" style="grid-column:1/-1">
-        <label>GitHub Personal Access Token (gist scope)</label>
-        <input id="gistToken" type="password" placeholder="ghp_..." />
-      </div>
-      <div class="field" style="grid-column:1/-1">
-        <label>Secret Gist ID (Leave blank on first device to auto-create)</label>
-        <input id="gistId" placeholder="Auto-generated on first Save & Sync" />
-      </div>
-    </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-      <button class="btn" onclick="pullFromGist(true)">↓ Pull Now</button>
-      <div style="display:flex;gap:8px">
-        <button class="btn" onclick="document.getElementById('gistModal').style.display='none'">Cancel</button>
-        <button class="btn" style="background:var(--accent);color:#0f172a" onclick="saveGistSettings()">Save & Sync</button>
-      </div>
-    </div>
-  </div>
-</div>
 <script>
-(function() {
-  const GIST_API = ["https:/", "://github.com", "gists"].join("/");
-  let gistTimer = null;
+const CATALOG = {
+  US: [
+    { ticker:"AAPL", name:"Apple Inc.", aliases:["apple"], ex:"NASDAQ", price:342.56, revGrowth:15.06, profGrowth:20.38, tangible:"$91.82B", ncav:"-$118.60B", fcf:"$105.66B", dcf:197.51, dcfParams:{baseFcf:105.66,growth:9.5,wacc:9.0,terminal:3.0,netCash:-52.0,shares:15.10}, def:true },
+    { ticker:"MSFT", name:"Microsoft Corp.", aliases:["microsoft"], ex:"NASDAQ", price:484.52, revGrowth:17.91, profGrowth:36.20, tangible:"$304.13B", ncav:"-$66.72B", fcf:"$66.99B", dcf:415.91, dcfParams:{baseFcf:92.00,growth:13.5,wacc:8.8,terminal:3.2,netCash:28.0,shares:7.43}, def:true },
+    { ticker:"NVDA", name:"NVIDIA Corp.", aliases:["nvidia"], ex:"NASDAQ", price:125.53, revGrowth:105.90, profGrowth:128.70, tangible:"$236.16B", ncav:"$116.47B", fcf:"$127.01B", dcf:142.61, dcfParams:{baseFcf:127.01,growth:18.0,wacc:10.0,terminal:3.5,netCash:38.0,shares:24.50}, def:true },
+    { ticker:"GOOGL", name:"Alphabet Inc.", aliases:["google","alphabet"], ex:"NASDAQ", price:265.29, revGrowth:25.00, profGrowth:30.00, tangible:"$340.00B", ncav:"$45.00B", fcf:"$19.75B", dcf:222.05, dcfParams:{baseFcf:88.00,growth:12.0,wacc:9.0,terminal:3.0,netCash:84.0,shares:12.25}, def:true },
+    { ticker:"ANT", name:"Anthropic PBC", aliases:["anthropic","claude"], ex:"NASDAQ", price:88.91, revGrowth:1200.00, profGrowth:null, tangible:"$94.50B", ncav:"$88.20B", fcf:"-$4.80B", dcf:78.50, dcfParams:{baseFcf:8.50,growth:28.0,wacc:11.5,terminal:3.5,netCash:91.6,shares:4.10}, def:false },
+    { ticker:"COST", name:"Costco Wholesale Corp.", aliases:["costco","cotsco"], ex:"NASDAQ", price:1102.15, revGrowth:10.14, profGrowth:13.92, tangible:"$89.05B", ncav:"-$10.40B", fcf:"$9.38B", dcf:825.00, dcfParams:{baseFcf:9.38,growth:11.5,wacc:8.0,terminal:3.0,netCash:4.2,shares:0.443}, def:false },
+    { ticker:"SNPS", name:"Synopsys Inc.", aliases:["synopsys"], ex:"NASDAQ", price:396.17, revGrowth:42.36, profGrowth:125.07, tangible:"$9.43B", ncav:"-$9.93B", fcf:"$2.60B", dcf:455.00, dcfParams:{baseFcf:2.60,growth:16.0,wacc:9.0,terminal:3.0,netCash:-8.5,shares:0.185}, def:false },
+    { ticker:"CDNS", name:"Cadence Design Systems", aliases:["cadence"], ex:"NASDAQ", price:281.58, revGrowth:21.00, profGrowth:22.50, tangible:"$1.85B", ncav:"$0.45B", fcf:"$1.76B", dcf:315.00, dcfParams:{baseFcf:1.76,growth:15.5,wacc:8.8,terminal:3.0,netCash:0.8,shares:0.274}, def:false },
+    { ticker:"AMZN", name:"Amazon.com Inc.", aliases:["amazon"], ex:"NASDAQ", price:212.40, revGrowth:11.80, profGrowth:32.50, tangible:"$445.00B", ncav:"-$38.20B", fcf:"$48.90B", dcf:245.00, dcfParams:{baseFcf:78.00,growth:15.0,wacc:9.2,terminal:3.0,netCash:12.0,shares:10.50}, def:false },
+    { ticker:"META", name:"Meta Platforms Inc.", aliases:["meta","facebook"], ex:"NASDAQ", price:598.10, revGrowth:19.40, profGrowth:28.10, tangible:"$182.50B", ncav:"$41.20B", fcf:"$52.10B", dcf:685.00, dcfParams:{baseFcf:52.10,growth:14.0,wacc:9.2,terminal:3.0,netCash:42.0,shares:2.53}, def:false },
+    { ticker:"TSLA", name:"Tesla Inc.", aliases:["tesla"], ex:"NASDAQ", price:258.40, revGrowth:14.20, profGrowth:18.60, tangible:"$96.40B", ncav:"$24.10B", fcf:"$6.85B", dcf:195.00, dcfParams:{baseFcf:12.50,growth:20.0,wacc:10.5,terminal:3.5,netCash:26.0,shares:3.21}, def:false },
+    { ticker:"AVGO", name:"Broadcom Inc.", aliases:["broadcom"], ex:"NASDAQ", price:184.20, revGrowth:38.50, profGrowth:44.20, tangible:"$52.30B", ncav:"-$48.90B", fcf:"$24.80B", dcf:218.00, dcfParams:{baseFcf:28.50,growth:16.0,wacc:9.2,terminal:3.0,netCash:-54.0,shares:4.68}, def:false },
+    { ticker:"BRK.B", name:"Berkshire Hathaway", aliases:["berkshire"], ex:"NYSE", price:468.90, revGrowth:9.40, profGrowth:12.10, tangible:"$985.00B", ncav:"$215.00B", fcf:"$34.20B", dcf:540.00, dcfParams:{baseFcf:34.20,growth:8.5,wacc:8.2,terminal:2.8,netCash:280.0,shares:2.15}, def:false },
+    { ticker:"V", name:"Visa Inc.", aliases:["visa"], ex:"NYSE", price:312.60, revGrowth:10.20, profGrowth:13.40, tangible:"$38.90B", ncav:"$8.40B", fcf:"$20.40B", dcf:365.00, dcfParams:{baseFcf:20.40,growth:11.5,wacc:8.5,terminal:3.0,netCash:-4.5,shares:1.98}, def:false }
+  ],
+  INDIA: [
+    { ticker:"RELIANCE", name:"Reliance Industries", aliases:["ril","reliance"], ex:"NSE / BSE", price:1377.50, revGrowth:29.84, profGrowth:40.64, tangible:"₹7,80,000 Cr", ncav:"-₹2,45,000 Cr", fcf:"₹69,200 Cr", dcf:1550.87, dcfParams:{baseFcf:69200,growth:13.5,wacc:10.5,terminal:4.5,netCash:-115000,shares:1353.2}, def:true },
+    { ticker:"TCS", name:"Tata Consultancy Services", aliases:["tcs","tata consultancy"], ex:"NSE / BSE", price:2379.50, revGrowth:11.23, profGrowth:7.41, tangible:"₹1,18,500 Cr", ncav:"₹72,715 Cr", fcf:"₹48,500 Cr", dcf:3313.99, dcfParams:{baseFcf:48500,growth:10.5,wacc:10.0,terminal:4.5,netCash:48000,shares:361.8}, def:true },
+    { ticker:"INFY", name:"Infosys Ltd.", aliases:["infosys","infy"], ex:"NSE / BSE", price:1108.80, revGrowth:10.69, profGrowth:6.23, tangible:"₹85,200 Cr", ncav:"₹51,000 Cr", fcf:"₹31,998 Cr", dcf:1903.07, dcfParams:{baseFcf:31998,growth:10.5,wacc:10.0,terminal:4.5,netCash:32000,shares:415.2}, def:true },
+    { ticker:"HDFCBANK", name:"HDFC Bank Ltd.", aliases:["hdfc","hdfc bank"], ex:"NSE / BSE", price:817.30, revGrowth:9.35, profGrowth:5.55, tangible:"₹5,86,059 Cr", ncav:"N/A (Bank)", fcf:"₹76,026 Cr", dcf:1315.56, dcfParams:{baseFcf:76026,growth:13.0,wacc:10.8,terminal:4.5,netCash:0,shares:1524.0}, def:true },
+    { ticker:"NSE", name:"National Stock Exchange of India", aliases:["nse","544937","national stock exchange"], ex:"BSE: 544937", price:2220.30, revGrowth:-3.15, profGrowth:-15.47, tangible:"₹31,429 Cr", ncav:"-₹19,093 Cr", fcf:"₹22,081 Cr", dcf:1980.00, dcfParams:{baseFcf:12500,growth:14.0,wacc:10.5,terminal:4.5,netCash:18500,shares:247.5}, def:false },
+    { ticker:"BSE", name:"BSE Ltd.", aliases:["bse","bombay stock exchange"], ex:"NSE", price:3755.70, revGrowth:34.10, profGrowth:44.90, tangible:"₹4,820 Cr", ncav:"₹2,150 Cr", fcf:"₹1,420 Cr", dcf:3250.00, dcfParams:{baseFcf:1420,growth:18.0,wacc:10.8,terminal:4.5,netCash:2400,shares:13.54}, def:false },
+    { ticker:"TRENT", name:"Trent Ltd. (Westside / Zudio)", aliases:["trent","zudio","westside"], ex:"NSE / BSE", price:3256.10, revGrowth:17.16, profGrowth:11.18, tangible:"₹11,850 Cr", ncav:"-₹2,640 Cr", fcf:"₹1,067 Cr", dcf:2680.00, dcfParams:{baseFcf:1850,growth:22.0,wacc:10.5,terminal:5.0,netCash:450,shares:35.55}, def:false },
+    { ticker:"DMART", name:"Avenue Supermarts (DMart)", aliases:["dmart","d-mart","avenue supermarts"], ex:"NSE / BSE", price:3490.00, revGrowth:15.88, profGrowth:10.14, tangible:"₹28,940 Cr", ncav:"₹4,120 Cr", fcf:"₹1,180 Cr", dcf:2890.00, dcfParams:{baseFcf:3450,growth:18.5,wacc:10.2,terminal:4.8,netCash:1200,shares:65.07}, def:false },
+    { ticker:"ICICIBANK", name:"ICICI Bank Ltd.", aliases:["icici"], ex:"NSE / BSE", price:1295.40, revGrowth:14.20, profGrowth:15.80, tangible:"₹4,92,000 Cr", ncav:"N/A (Bank)", fcf:"₹49,800 Cr", dcf:1540.00, dcfParams:{baseFcf:49800,growth:14.0,wacc:10.8,terminal:4.5,netCash:0,shares:704.5}, def:false },
+    { ticker:"ITC", name:"ITC Ltd.", aliases:["itc"], ex:"NSE / BSE", price:488.60, revGrowth:8.90, profGrowth:7.40, tangible:"₹64,300 Cr", ncav:"₹28,400 Cr", fcf:"₹17,900 Cr", dcf:585.00, dcfParams:{baseFcf:17900,growth:10.0,wacc:9.8,terminal:4.2,netCash:26500,shares:1248.5}, def:false },
+    { ticker:"TATAMOTORS", name:"Tata Motors Ltd.", aliases:["tata motors"], ex:"NSE / BSE", price:842.00, revGrowth:12.60, profGrowth:24.80, tangible:"₹1,68,500 Cr", ncav:"-₹42,100 Cr", fcf:"₹24,600 Cr", dcf:1095.00, dcfParams:{baseFcf:24600,growth:11.0,wacc:11.0,terminal:4.0,netCash:-18000,shares:368.0}, def:false },
+    { ticker:"BHARTIARTL", name:"Bharti Airtel Ltd.", aliases:["airtel","bharti"], ex:"NSE / BSE", price:1645.00, revGrowth:16.80, profGrowth:48.20, tangible:"₹2,45,000 Cr", ncav:"-₹88,400 Cr", fcf:"₹32,400 Cr", dcf:1890.00, dcfParams:{baseFcf:32400,growth:15.5,wacc:10.5,terminal:4.5,netCash:-125000,shares:569.2}, def:false },
+    { ticker:"BAJFINANCE", name:"Bajaj Finance Ltd.", aliases:["bajaj finance"], ex:"NSE / BSE", price:7120.00, revGrowth:24.50, profGrowth:21.20, tangible:"₹3,42,000 Cr", ncav:"N/A (NBFC)", fcf:"₹18,400 Cr", dcf:8950.00, dcfParams:{baseFcf:18400,growth:19.0,wacc:11.0,terminal:4.8,netCash:0,shares:61.9}, def:false },
+    { ticker:"SUNPHARMA", name:"Sun Pharmaceutical", aliases:["sun pharma"], ex:"NSE / BSE", price:1825.00, revGrowth:11.40, profGrowth:16.90, tangible:"₹58,400 Cr", ncav:"₹24,800 Cr", fcf:"₹11,200 Cr", dcf:2110.00, dcfParams:{baseFcf:11200,growth:13.0,wacc:10.0,terminal:4.5,netCash:14500,shares:239.9}, def:false }
+  ]
+};
 
-  function readLocalState() {
-    for (const k of ["wl_v8_state", "wl_v7_state", "wl_v6_state", "wl_v4_state"]) {
-      const raw = localStorage.getItem(k);
-      if (raw) { try { return JSON.parse(raw); } catch (e) {} }
-    }
+const DEFAULT_GOLD = [
+  { date:"20/11/2026", am:123584, pm:123893 },
+  { date:"19/11/2026", am:129985, pm:129531 },
+  { date:"18/11/2026", am:131505, pm:131164 },
+  { date:"17/11/2026", am:134418, pm:134201 }
+];
+
+const STORAGE_KEY = "wl_v7_state";
+let state = loadState();
+let activeTab = "US";
+let selected = new Set();
+let lastDeleted = null;
+let dragSrcIdx = null;
+let dcfEditIdx = null;
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem("wl_v6_state") || localStorage.getItem("wl_v4_state");
+    if (raw) return JSON.parse(raw);
     if (window.name && window.name.startsWith("WL_STATE:")) {
-      try { return JSON.parse(window.name.slice(9)); } catch (e) {}
+      return JSON.parse(window.name.slice(9));
     }
-    return { US: [], INDIA: [], GOLD: [] };
-  }
+  } catch (e) {}
+  return {
+    US: CATALOG.US.filter(s => s.def).map(s => ({...s})),
+    INDIA: CATALOG.INDIA.filter(s => s.def).map(s => ({...s})),
+    GOLD: [...DEFAULT_GOLD]
+  };
+}
 
-  function writeLocalState(obj) {
-    const str = JSON.stringify(obj);
-    localStorage.setItem("wl_v8_state", str);
-    try { window.name = "WL_STATE:" + str; } catch (e) {}
+function saveState() {
+  const serialized = JSON.stringify(state);
+  try { localStorage.setItem(STORAGE_KEY, serialized); } catch (e) {}
+  try { window.name = "WL_STATE:" + serialized; } catch (e) {}
+  const pill = document.getElementById("syncStatus");
+  if (!window.LIVE_WATCHLIST_DATA) {
+    pill.textContent = "Saved Locally • " + new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
   }
+}
 
-  if (typeof saveState === "function") {
-    const _origSave = saveState;
-    window.saveState = function(skipCloud = false) {
-      _origSave();
-      if (!skipCloud) scheduleGistPush();
-    };
-  }
+function applyLiveData() {
+  if (!window.LIVE_WATCHLIST_DATA) return;
+  const d = window.LIVE_WATCHLIST_DATA;
+  document.getElementById("syncStatus").textContent = "Live Sync: " + d.updated_at;
+  ["US","INDIA"].forEach(m => {
+    const map = m === "US" ? d.us_prices : d.india_prices;
+    state[m].forEach(row => { if (map && map[row.ticker]) row.price = map[row.ticker]; });
+    CATALOG[m].forEach(row => { if (map && map[row.ticker]) row.price = map[row.ticker]; });
+  });
+  if (d.gold_sessions && d.gold_sessions.length) state.GOLD = d.gold_sessions;
+  saveState();
+}
 
-  function getGistCfg() {
-    const cfg = JSON.parse(localStorage.getItem("wl_gist_cfg") || "{}");
-    if (cfg.token) cfg.token = cfg.token.replace(/[^\x21-\x7E]/g, "");
-    if (cfg.gistId) cfg.gistId = cfg.gistId.replace(/[^a-zA-Z0-9]/g, "");
-    return cfg;
-  }
+function refreshLivePrices() {
+  const btn = document.getElementById("refreshBtn");
+  btn.disabled = true;
+  btn.textContent = "↻ Refreshing...";
 
-  window.openGistModal = function() {
-    const c = getGistCfg();
-    document.getElementById("gistToken").value = c.token || "";
-    document.getElementById("gistId").value = c.gistId || "";
-    document.getElementById("gistModal").style.display = "flex";
+  const oldScript = document.getElementById("liveDataScript");
+  if (oldScript) oldScript.remove();
+
+  const freshScript = document.createElement("script");
+  freshScript.id = "liveDataScript";
+  freshScript.src = "live_data.js?t=" + Date.now();
+
+  freshScript.onload = () => {
+    applyLiveData();
+    renderTable();
+    btn.disabled = false;
+    btn.textContent = "↻ Refresh Live Prices";
+    showToast("Live prices refreshed from live_data.js!");
   };
 
-  window.saveGistSettings = async function() {
-    const token = document.getElementById("gistToken").value.replace(/[^\x21-\x7E]/g, "");
-    const gistId = document.getElementById("gistId").value.replace(/[^a-zA-Z0-9]/g, "");
-    localStorage.setItem("wl_gist_cfg", JSON.stringify({ token, gistId }));
-    document.getElementById("gistModal").style.display = "none";
-    if (!token) return showToast("Cloud sync disabled");
-    if (gistId) await pullFromGist(true); else await pushToGist(true);
+  freshScript.onerror = () => {
+    btn.disabled = false;
+    btn.textContent = "↻ Refresh Live Prices";
+    showToast("Could not find live_data.js • Run update_watchlist.py first");
   };
 
-  function scheduleGistPush() {
-    if (!getGistCfg().token) return;
-    clearTimeout(gistTimer);
-    gistTimer = setTimeout(() => pushToGist(false), 1500);
-  }
+  document.head.appendChild(freshScript);
+}
 
-  window.pushToGist = async function(notify = false) {
-    const c = getGistCfg();
-    if (!c.token) return;
-    const currentData = readLocalState();
-    const body = {
-      description: "Watchlist Sync",
-      public: false,
-      files: { "watchlist_state.json": { content: JSON.stringify(currentData, null, 2) } }
-    };
-    try {
-      const url = c.gistId ? `${GIST_API}/${c.gistId}` : GIST_API;
-      const res = await fetch(url, {
-        method: c.gistId ? "PATCH" : "POST",
-        headers: { "Accept": "application/vnd.github+json", "Authorization": `token ${c.token}` },
-        body: JSON.stringify(body)
-      });
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      const data = await res.json();
-      if (!c.gistId && data.id) {
-        localStorage.setItem("wl_gist_cfg", JSON.stringify({ token: c.token, gistId: data.id }));
-        if (notify) alert("Created Secret Gist! Copy this Gist ID for your other devices:\n\n" + data.id);
-      } else if (notify) showToast("Synced watchlist to Secret Gist!");
-    } catch (e) { if (notify) showToast("Gist sync error: " + e.message); }
-  };
+function calcMetrics(s) {
+  const mos = s.dcf > 0 ? ((s.dcf - s.price) / s.dcf) * 100 : -100;
+  const signal = mos >= 20 ? "BUY" : (mos >= 0 ? "HOLD" : "SELL");
+  return { mos, signal };
+}
 
-  window.pullFromGist = async function(notify = false) {
-    const c = getGistCfg();
-    if (!c.token || !c.gistId) return;
-    try {
-      const res = await fetch(`${GIST_API}/${c.gistId}?t=${Date.now()}`, {
-        headers: { "Accept": "application/vnd.github+json", "Authorization": `token ${c.token}` }
-      });
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      const data = await res.json();
-      const raw = data.files && data.files["watchlist_state.json"] && data.files["watchlist_state.json"].content;
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        const prev = JSON.stringify(readLocalState());
-        const next = JSON.stringify(parsed);
-        writeLocalState(parsed);
-        if (prev !== next) {
-          location.reload();
-        } else if (notify) {
-          showToast("Watchlist is already up to date!");
-        }
+function fmtCur(val, m) {
+  return (m === "US" ? "$" : "₹") + Number(val).toLocaleString(m === "US" ? "en-US" : "en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function renderTable() {
+  if (activeTab === "GOLD") return renderGold();
+  const tbody = document.getElementById("tableBody");
+  tbody.innerHTML = "";
+  state[activeTab].forEach((s, idx) => {
+    const { mos, signal } = calcMetrics(s);
+    const tr = document.createElement("tr");
+    tr.draggable = true;
+    tr.addEventListener("dragstart", () => { dragSrcIdx = idx; tr.style.opacity = "0.5"; });
+    tr.addEventListener("dragend", () => { tr.style.opacity = "1"; document.querySelectorAll("tr").forEach(r => r.classList.remove("drag-over")); });
+    tr.addEventListener("dragover", e => { e.preventDefault(); tr.classList.add("drag-over"); });
+    tr.addEventListener("dragleave", () => tr.classList.remove("drag-over"));
+    tr.addEventListener("drop", e => {
+      e.preventDefault();
+      if (dragSrcIdx === null || dragSrcIdx === idx) return;
+      const moved = state[activeTab].splice(dragSrcIdx, 1)[0];
+      state[activeTab].splice(idx, 0, moved);
+      dragSrcIdx = null;
+      saveState(); renderTable();
+    });
+
+    tr.innerHTML = `
+      <td>
+        <div class="drag-cell" title="Drag to reorder">
+          <span>⋮⋮</span>
+          <button class="nudge-btn" onclick="nudgeRow(${idx}, -1)" title="Move Up">▲</button>
+          <button class="nudge-btn" onclick="nudgeRow(${idx}, 1)" title="Move Down">▼</button>
+        </div>
+      </td>
+      <td><input type="checkbox" ${selected.has(s.ticker) ? "checked" : ""} onchange="toggleRow('${s.ticker}', this.checked)" /></td>
+      <td><strong>${s.ticker}</strong> <span class="badge-ex">${s.ex}</span><div style="font-size:0.78rem;color:var(--muted)">${s.name}</div></td>
+      <td class="editable" title="Click to edit price" onclick="editPrice(${idx})">${fmtCur(s.price, activeTab)}</td>
+      <td class="${s.revGrowth >= 0 ? 'pos' : 'neg'}">${s.revGrowth != null ? (s.revGrowth >= 0 ? '+' : '') + s.revGrowth.toFixed(2) + '%' : 'N/A'}</td>
+      <td class="${s.profGrowth >= 0 ? 'pos' : 'neg'}">${s.profGrowth != null ? (s.profGrowth >= 0 ? '+' : '') + s.profGrowth.toFixed(2) + '%' : 'N/A'}</td>
+      <td>${s.tangible}</td>
+      <td>${s.ncav}</td>
+      <td>${s.fcf}</td>
+      <td><span class="dcf-link" title="Click to adjust WACC, growth & DCF parameters" onclick="openDcfModal(${idx})">${fmtCur(s.dcf, activeTab)} ✎</span></td>
+      <td class="${mos >= 0 ? 'pos' : 'neg'}">${(mos >= 0 ? '+' : '') + mos.toFixed(1)}%</td>
+      <td><span class="sig sig-${signal}">${signal}</span></td>
+      <td><button class="btn btn-danger" style="padding:5px 10px" onclick="deleteOne(${idx})">Delete</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+  updateToolbarBtns();
+}
+
+function nudgeRow(idx, dir) {
+  const target = idx + dir;
+  if (target < 0 || target >= state[activeTab].length) return;
+  const item = state[activeTab].splice(idx, 1)[0];
+  state[activeTab].splice(target, 0, item);
+  saveState(); renderTable();
+}
+
+function moveSelected(dir) {
+  const arr = state[activeTab];
+  if (dir === -1) {
+    for (let i = 1; i < arr.length; i++) {
+      if (selected.has(arr[i].ticker) && !selected.has(arr[i-1].ticker)) {
+        [arr[i-1], arr[i]] = [arr[i], arr[i-1]];
       }
-    } catch (e) { if (notify) showToast("Gist pull error: " + e.message); }
-  };
+    }
+  } else {
+    for (let i = arr.length - 2; i >= 0; i--) {
+      if (selected.has(arr[i].ticker) && !selected.has(arr[i+1].ticker)) {
+        [arr[i+1], arr[i]] = [arr[i], arr[i+1]];
+      }
+    }
+  }
+  saveState(); renderTable();
+}
 
-  
-  window.refreshLivePrices = function() {
-    const btn = document.getElementById("refreshBtn");
-    if (btn) { btn.disabled = true; btn.textContent = "↻ Refreshing..."; }
-    const oldScript = document.getElementById("liveDataScript");
-    if (oldScript) oldScript.remove();
-    const s = document.createElement("script");
-    s.id = "liveDataScript";
-    s.src = "live_data.js?t=" + Date.now();
-    s.onload = async () => {
-      if (typeof applyLiveData === "function") applyLiveData();
-      if (typeof renderTable === "function") renderTable();
-      await window.pullFromGist(false);
-      if (btn) { btn.disabled = false; btn.textContent = "↻ Refresh Live Prices"; }
-      if (typeof showToast === "function") showToast("Live prices refreshed!");
-    };
-    s.onerror = () => {
-      if (btn) { btn.disabled = false; btn.textContent = "↻ Refresh Live Prices"; }
-      if (typeof showToast === "function") showToast("Could not load live_data.js");
-    };
-    document.head.appendChild(s);
-  };
+function openDcfModal(idx) {
+  dcfEditIdx = idx;
+  const s = state[activeTab][idx];
+  const unit = activeTab === "US" ? "$ Billions" : "₹ Crores";
+  const shUnit = activeTab === "US" ? "Billions" : "Crores";
+  document.getElementById("dcfTitle").textContent = `DCF Model • ${s.ticker} (${s.name})`;
+  document.getElementById("lblBaseFcf").textContent = `Base Free Cash Flow (${unit})`;
+  document.getElementById("lblNetCash").textContent = `Net Cash / (Debt) (${unit})`;
+  document.getElementById("lblShares").textContent = `Diluted Shares (${shUnit})`;
 
-  pullFromGist(false);
-})();
+  const orig = CATALOG[activeTab].find(x => x.ticker === s.ticker);
+  const p = s.dcfParams || (orig && orig.dcfParams) || {
+    baseFcf: parseFloat(String(s.fcf).replace(/[^0-9.-]/g, "")) || 10,
+    growth: Math.min(Math.max(s.revGrowth || 10, 3), 25),
+    wacc: activeTab === "US" ? 9.0 : 10.5,
+    terminal: activeTab === "US" ? 3.0 : 4.5,
+    netCash: 0,
+    shares: 1
+  };
+  document.getElementById("dFcf").value = p.baseFcf;
+  document.getElementById("dGrowth").value = p.growth;
+  document.getElementById("dWacc").value = p.wacc;
+  document.getElementById("dTerm").value = p.terminal;
+  document.getElementById("dNetCash").value = p.netCash;
+  document.getElementById("dShares").value = p.shares;
+  recalcDcfModal();
+  document.getElementById("dcfModal").style.display = "flex";
+}
+
+function computeTwoStageDcf(baseFcf, growthPct, waccPct, termPct, netCash, shares) {
+  const g = growthPct / 100;
+  const r = waccPct / 100;
+  const gt = termPct / 100;
+  if (r <= gt || shares <= 0) return null;
+  let pvSum = 0;
+  let fcf = baseFcf;
+  for (let yr = 1; yr <= 5; yr++) {
+    fcf = fcf * (1 + g);
+    pvSum += fcf / Math.pow(1 + r, yr);
+  }
+  const terminalVal = (fcf * (1 + gt)) / (r - gt);
+  const pvTerminal = terminalVal / Math.pow(1 + r, 5);
+  const equityVal = pvSum + pvTerminal + netCash;
+  return Math.max(0, equityVal / shares);
+}
+
+function recalcDcfModal() {
+  const s = state[activeTab][dcfEditIdx];
+  const baseFcf = parseFloat(document.getElementById("dFcf").value) || 0;
+  const growth = parseFloat(document.getElementById("dGrowth").value) || 0;
+  const wacc = parseFloat(document.getElementById("dWacc").value) || 0;
+  const term = parseFloat(document.getElementById("dTerm").value) || 0;
+  const netCash = parseFloat(document.getElementById("dNetCash").value) || 0;
+  const shares = parseFloat(document.getElementById("dShares").value) || 0;
+
+  const err = document.getElementById("dcfError");
+  const val = computeTwoStageDcf(baseFcf, growth, wacc, term, netCash, shares);
+  document.getElementById("prevPrice").textContent = fmtCur(s.price, activeTab);
+  if (val === null) {
+    err.style.display = "block";
+    document.getElementById("prevDcf").textContent = "Invalid";
+    document.getElementById("prevMos").textContent = "—";
+    return null;
+  }
+  err.style.display = "none";
+  const mos = val > 0 ? ((val - s.price) / val) * 100 : -100;
+  const sig = mos >= 20 ? "BUY" : (mos >= 0 ? "HOLD" : "SELL");
+  document.getElementById("prevDcf").textContent = fmtCur(val, activeTab);
+  const mosEl = document.getElementById("prevMos");
+  mosEl.textContent = `${mos >= 0 ? "+" : ""}${mos.toFixed(1)}% (${sig})`;
+  mosEl.className = "val " + (mos >= 0 ? "pos" : "neg");
+  return { val: Number(val.toFixed(2)), params: { baseFcf, growth, wacc, terminal: term, netCash, shares } };
+}
+
+function applyDcfModal() {
+  const res = recalcDcfModal();
+  if (!res) return;
+  const s = state[activeTab][dcfEditIdx];
+  s.dcf = res.val;
+  s.dcfParams = res.params;
+  const unitPrefix = activeTab === "US" ? "$" : "₹";
+  const unitSuffix = activeTab === "US" ? "B" : " Cr";
+  s.fcf = `${unitPrefix}${res.params.baseFcf.toLocaleString(activeTab === "US" ? "en-US" : "en-IN")}${unitSuffix}`;
+  saveState();
+  closeDcfModal();
+  renderTable();
+}
+
+function resetStockDcf() {
+  const s = state[activeTab][dcfEditIdx];
+  const orig = CATALOG[activeTab].find(x => x.ticker === s.ticker);
+  if (orig && orig.dcfParams) {
+    s.dcfParams = { ...orig.dcfParams };
+    s.dcf = orig.dcf;
+    openDcfModal(dcfEditIdx);
+  }
+}
+
+function closeDcfModal() {
+  document.getElementById("dcfModal").style.display = "none";
+  dcfEditIdx = null;
+}
+
+function renderGold() {
+  const latest = state.GOLD[0] || { date: "20/11/2026", am: 123584, pm: 123893 };
+  document.getElementById("goldCards").innerHTML = `
+    <div class="gold-card">
+      <h3>Today's Active IBJA 24K (999) Rate / 10g</h3>
+      <div class="big">₹${latest.pm.toLocaleString("en-IN")}</div>
+      <div class="note">Session: ${latest.date} PM (₹${Math.round(latest.pm/10).toLocaleString("en-IN")}/g) • Excl. 3% GST</div>
+    </div>
+    <div class="gold-card">
+      <h3>Ghaziabad / Delhi NCR Retail 24K / 10g</h3>
+      <div class="big">₹1,25,230</div>
+      <div class="note">Saturday, 21 Nov 2026 (₹12,523/g) • IBJA closed Sat/Sun</div>
+    </div>
+  `;
+  const tbody = document.getElementById("goldBody");
+  tbody.innerHTML = "";
+  state.GOLD.forEach((g, idx) => {
+    const diff = g.pm - g.am;
+    const pct = ((diff / g.am) * 100).toFixed(2);
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><strong>${g.date}</strong></td>
+      <td>₹${g.am.toLocaleString("en-IN")}</td>
+      <td><strong>₹${g.pm.toLocaleString("en-IN")}</strong></td>
+      <td class="${diff >= 0 ? 'pos' : 'neg'}">${diff >= 0 ? '+' : ''}₹${diff.toLocaleString("en-IN")} (${diff >= 0 ? '+' : ''}${pct}%)</td>
+      <td>₹${Math.round(g.pm / 10).toLocaleString("en-IN")}</td>
+      <td><button class="btn btn-danger" style="padding:5px 10px" onclick="deleteGold(${idx})">Delete</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function switchTab(tab, el) {
+  activeTab = tab;
+  selected.clear();
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+  el.classList.add("active");
+  document.getElementById("stockSection").style.display = tab === "GOLD" ? "none" : "block";
+  document.getElementById("goldSection").style.display = tab === "GOLD" ? "block" : "none";
+  renderTable();
+}
+
+function editPrice(idx) {
+  const cur = state[activeTab][idx].price;
+  const val = prompt(`Enter new market price for ${state[activeTab][idx].ticker}:`, cur);
+  if (val !== null && !isNaN(parseFloat(val))) {
+    state[activeTab][idx].price = parseFloat(val);
+    saveState(); renderTable();
+  }
+}
+
+function toggleRow(ticker, checked) {
+  if (checked) selected.add(ticker); else selected.delete(ticker);
+  updateToolbarBtns();
+}
+
+function toggleAll(checked) {
+  selected.clear();
+  if (checked) state[activeTab].forEach(s => selected.add(s.ticker));
+  renderTable();
+}
+
+function updateToolbarBtns() {
+  const count = selected.size;
+  const delBtn = document.getElementById("bulkDelBtn");
+  delBtn.disabled = count === 0;
+  delBtn.textContent = `Delete Selected (${count})`;
+  document.getElementById("moveUpBtn").disabled = count === 0;
+  document.getElementById("moveDownBtn").disabled = count === 0;
+}
+
+function deleteOne(idx) {
+  const removed = state[activeTab].splice(idx, 1);
+  lastDeleted = { market: activeTab, items: removed };
+  selected.delete(removed[0].ticker);
+  saveState(); renderTable(); showToast(`Removed ${removed[0].ticker}`);
+}
+
+function deleteSelected() {
+  const removed = state[activeTab].filter(s => selected.has(s.ticker));
+  state[activeTab] = state[activeTab].filter(s => !selected.has(s.ticker));
+  lastDeleted = { market: activeTab, items: removed };
+  selected.clear();
+  saveState(); renderTable(); showToast(`Removed ${removed.length} stock(s)`);
+}
+
+function deleteGold(idx) { state.GOLD.splice(idx, 1); saveState(); renderGold(); }
+
+function undoDelete() {
+  if (!lastDeleted) return;
+  state[lastDeleted.market].push(...lastDeleted.items);
+  lastDeleted = null;
+  document.getElementById("toast").style.display = "none";
+  saveState(); renderTable();
+}
+
+function showToast(msg) {
+  document.getElementById("toastMsg").textContent = msg;
+  const t = document.getElementById("toast");
+  t.style.display = "flex";
+  setTimeout(() => { t.style.display = "none"; }, 5000);
+}
+
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,
+        dp[i][j - 1] + 1,
+        dp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+      );
+    }
+  }
+  return dp[m][n];
+}
+
+const searchInput = document.getElementById("searchInput");
+const dropdown = document.getElementById("dropdown");
+
+function renderDropdown() {
+  const q = searchInput.value.trim().toLowerCase();
+  const all = [
+    ...CATALOG.US.map(s => ({ ...s, market: "US" })),
+    ...CATALOG.INDIA.map(s => ({ ...s, market: "INDIA" }))
+  ];
+  const matches = !q ? all : all.filter(s => {
+    const fields = [s.ticker.toLowerCase(), s.name.toLowerCase(), ...(s.aliases || [])];
+    return fields.some(f => f.includes(q) || (q.length >= 4 && levenshtein(q, f.slice(0, q.length + 1)) <= 2));
+  });
+  let html = matches.map(m => `
+    <div class="dropdown-item" onclick="addFromCatalog('${m.market}', '${m.ticker}')">
+      <div><strong>${m.ticker}</strong> <span class="badge-ex">${m.market} • ${m.ex}</span><div style="font-size:0.78rem;color:var(--muted)">${m.name}</div></div>
+      <div>${fmtCur(m.price, m.market)}</div>
+    </div>
+  `).join("");
+  if (q) {
+    html += `
+      <div class="dropdown-item" onclick="openCustomModal('${q.toUpperCase()}')">
+        <div><strong>+ Add "${q.toUpperCase()}" manually</strong></div>
+        <div style="color:var(--accent);font-size:0.8rem">Custom Entry</div>
+      </div>
+    `;
+  }
+  dropdown.innerHTML = html;
+  dropdown.style.display = "block";
+}
+
+searchInput.addEventListener("input", renderDropdown);
+searchInput.addEventListener("focus", renderDropdown);
+document.addEventListener("click", e => { if (!e.target.closest(".search-wrap")) dropdown.style.display = "none"; });
+
+function addFromCatalog(market, ticker) {
+  dropdown.style.display = "none";
+  searchInput.value = "";
+  if (activeTab !== market) {
+    const btn = document.querySelectorAll(".tab-btn")[market === "US" ? 0 : 1];
+    switchTab(market, btn);
+  }
+  if (!state[market].some(s => s.ticker === ticker)) {
+    const item = CATALOG[market].find(s => s.ticker === ticker);
+    state[market].unshift({ ...item, dcfParams: { ...item.dcfParams } });
+    saveState();
+  }
+  renderTable();
+}
+
+function openCustomModal(prefill = "") {
+  dropdown.style.display = "none";
+  document.getElementById("cTicker").value = prefill;
+  document.getElementById("customModal").style.display = "flex";
+}
+
+function saveCustomStock() {
+  const ticker = document.getElementById("cTicker").value.trim().toUpperCase();
+  const price = parseFloat(document.getElementById("cPrice").value);
+  const dcf = parseFloat(document.getElementById("cDcf").value);
+  if (!ticker || isNaN(price) || isNaN(dcf)) return alert("Ticker, Price, and DCF Valuation are required.");
+  const targetTab = activeTab === "GOLD" ? "US" : activeTab;
+  const fcfNum = parseFloat(String(document.getElementById("cFcf").value).replace(/[^0-9.-]/g, "")) || 10;
+  state[targetTab].unshift({
+    ticker,
+    name: document.getElementById("cName").value.trim() || ticker,
+    ex: document.getElementById("cEx").value.trim() || (targetTab === "US" ? "NASDAQ" : "NSE"),
+    price,
+    revGrowth: parseFloat(document.getElementById("cRev").value) || 0,
+    profGrowth: parseFloat(document.getElementById("cProf").value) || 0,
+    tangible: document.getElementById("cTang").value.trim() || "N/A",
+    ncav: document.getElementById("cNcav").value.trim() || "N/A",
+    fcf: document.getElementById("cFcf").value.trim() || "N/A",
+    dcf,
+    dcfParams: { baseFcf: fcfNum, growth: 10, wacc: targetTab === "US" ? 9.0 : 10.5, terminal: targetTab === "US" ? 3.0 : 4.5, netCash: 0, shares: 1 }
+  });
+  saveState();
+  document.getElementById("customModal").style.display = "none";
+  renderTable();
+}
+
+function saveGoldRow() {
+  const date = document.getElementById("gDate").value.trim();
+  const am = parseFloat(document.getElementById("gAm").value);
+  const pm = parseFloat(document.getElementById("gPm").value);
+  if (!date || isNaN(am) || isNaN(pm)) return alert("Enter valid Date, AM, and PM rates.");
+  state.GOLD.unshift({ date, am, pm });
+  saveState(); document.getElementById("goldModal").style.display = "none"; renderGold();
+}
+
+let sortAsc = true;
+function sortBy(key) {
+  sortAsc = !sortAsc;
+  state[activeTab].sort((a, b) => {
+    const va = key === "mos" ? calcMetrics(a).mos : a[key];
+    const vb = key === "mos" ? calcMetrics(b).mos : b[key];
+    return (va > vb ? 1 : -1) * (sortAsc ? 1 : -1);
+  });
+  saveState(); renderTable();
+}
+
+function exportJSON() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "watchlist_backup.json";
+  a.click();
+}
+
+function importJSON(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => { state = JSON.parse(ev.target.result); saveState(); renderTable(); };
+  reader.readAsText(file);
+}
+
+function resetDefaults() {
+  if (!confirm("Reset watchlist to defaults?")) return;
+  state = {
+    US: CATALOG.US.filter(s => s.def).map(s => ({...s, dcfParams:{...s.dcfParams}})),
+    INDIA: CATALOG.INDIA.filter(s => s.def).map(s => ({...s, dcfParams:{...s.dcfParams}})),
+    GOLD: [...DEFAULT_GOLD]
+  };
+  saveState(); renderTable();
+}
+
+applyLiveData();
+renderTable();
 </script>
 </body>
+</html>
