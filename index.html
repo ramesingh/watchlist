@@ -92,20 +92,20 @@ th:nth-child(3) { background: var(--card2); z-index: 3; }
     <div class="header-right">
     <div class="status-pill" id="syncStatus">Saved Locally • Snapshot: 21 Nov 2026</div>
      <button class="btn-refresh" id="refreshBtn" onclick="refreshLivePrices()">↻ Refresh Live Prices</button>
-     <button class="btn" title="Cross-Device Gist Sync" onclick="openGistModal()">☁ Sync</button>
+     <button class="btn" id="syncBtn" style="display:none" title="Cross-Device Gist Sync" onclick="openGistModal()">☁ Sync</button>
     </div>
   </header>
 
   <div class="tabs">
     <button class="tab-btn active" onclick="switchTab('US', this)">US Stocks ($)</button>
-    <button class="tab-btn" onclick="switchTab('INDIA', this)">India (₹)</button>
+    <button class="tab-btn" onclick="switchTab('INDIA', this)">India Stocks(₹)</button>
     <button class="tab-btn" onclick="switchTab('GOLD', this)">Gold (IBJA 24K)</button>
   </div>
 
   <div id="stockSection">
     <div class="toolbar">
       <div class="search-wrap">
-        <input id="searchInput" class="search-input" type="text" placeholder="Search ticker, company, alias, or BSE code (e.g. SNPS, COST, TRENT, DMART, NSE, 544937)..." autocomplete="off" />
+        <input id="searchInput" class="search-input" type="text" autofocus placeholder="Search ticker, company, alias, or BSE code (e.g. SNPS, COST, TRENT, DMART, NSE, 544937)..." autocomplete="off" />
         <div id="dropdown" class="dropdown"></div>
       </div>
       <div class="actions">
@@ -135,7 +135,6 @@ th:nth-child(3) { background: var(--card2); z-index: 3; }
             <th onclick="sortBy('dcf')">DCF Value ✎</th>
             <th onclick="sortBy('mos')">Margin of Safety</th>
             <th onclick="sortBy('signal')">Advice</th>
-            <th>Action</th>
           </tr>
         </thead>
         <tbody id="tableBody"></tbody>
@@ -160,7 +159,6 @@ th:nth-child(3) { background: var(--card2); z-index: 3; }
             <th>PM Closing (10g)</th>
             <th>Intraday Change</th>
             <th>1 Gram (PM)</th>
-            <th>Action</th>
           </tr>
         </thead>
         <tbody id="goldBody"></tbody>
@@ -389,6 +387,27 @@ function getGistCfg() {
   return c;
 }
 
+function checkOwnerMode() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("sync") === "1" || getGistCfg().token) {
+    localStorage.setItem("wl_owner_mode", "1");
+  }
+  if (localStorage.getItem("wl_owner_mode") === "1") {
+    const btn = document.getElementById("syncBtn");
+    if (btn) btn.style.display = "inline-block";
+  }
+}
+
+// Optional secret keyboard shortcut: press Ctrl + Shift + S to toggle Sync button
+document.addEventListener("keydown", e => {
+  if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "s") {
+    e.preventDefault();
+    localStorage.setItem("wl_owner_mode", "1");
+    checkOwnerMode();
+    openGistModal();
+  }
+});
+
 function openGistModal() {
   const c = getGistCfg();
   document.getElementById("gistToken").value = c.token || "";
@@ -560,7 +579,6 @@ function renderTable() {
       <td><span class="dcf-link" title="Click to adjust WACC, growth & DCF parameters" onclick="openDcfModal(${idx})">${fmtCur(s.dcf, activeTab)} ✎</span></td>
       <td class="${mos >= 0 ? 'pos' : 'neg'}">${(mos >= 0 ? '+' : '') + mos.toFixed(1)}%</td>
       <td><span class="sig sig-${signal}">${signal}</span></td>
-      <td><button class="btn btn-danger" style="padding:5px 10px" onclick="deleteOne(${idx})">Delete</button></td>
     `;
     tbody.appendChild(tr);
   });
@@ -722,7 +740,6 @@ function renderGold() {
       <td><strong>₹${g.pm.toLocaleString("en-IN")}</strong></td>
       <td class="${diff >= 0 ? 'pos' : 'neg'}">${diff >= 0 ? '+' : ''}₹${diff.toLocaleString("en-IN")} (${diff >= 0 ? '+' : ''}${pct}%)</td>
       <td>₹${Math.round(g.pm / 10).toLocaleString("en-IN")}</td>
-      <td><button class="btn btn-danger" style="padding:5px 10px" onclick="deleteGold(${idx})">Delete</button></td>
     `;
     tbody.appendChild(tr);
   });
@@ -736,6 +753,7 @@ function switchTab(tab, el) {
   document.getElementById("stockSection").style.display = tab === "GOLD" ? "none" : "block";
   document.getElementById("goldSection").style.display = tab === "GOLD" ? "block" : "none";
   renderTable();
+  if (tab !== "GOLD") document.getElementById("searchInput").focus();
 }
 
 function editPrice(idx) {
@@ -848,7 +866,7 @@ function renderDropdown() {
 }
 
 searchInput.addEventListener("input", renderDropdown);
-searchInput.addEventListener("focus", renderDropdown);
+searchInput.addEventListener("click", renderDropdown);
 document.addEventListener("click", e => { if (!e.target.closest(".search-wrap")) dropdown.style.display = "none"; });
 
 function addFromCatalog(market, ticker) {
@@ -943,9 +961,17 @@ function resetDefaults() {
   saveState(); renderTable();
 }
 
+checkOwnerMode();
 applyLiveData();
 renderTable();
 pullFromGist(false);
+
+window.addEventListener("load", () => {
+  setTimeout(() => {
+    const input = document.getElementById("searchInput");
+    if (input && activeTab !== "GOLD") input.focus();
+  }, 200);
+});
 </script>
 </body>
 </html>
