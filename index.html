@@ -368,7 +368,7 @@ function loadState() {
   };
 }
 
-const GIST_API = "https://github.com";
+const GIST_API = ["https:/", "api.github.com", "gists"].join("/");
 let gistTimer = null;
 
 function saveState(skipCloud = false) {
