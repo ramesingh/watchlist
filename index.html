@@ -105,7 +105,7 @@ th:nth-child(3) { background: var(--card2); z-index: 3; }
   <div id="stockSection">
     <div class="toolbar">
       <div class="search-wrap">
-        <input id="searchInput" class="search-input" type="text" autofocus placeholder="Search ticker, company, alias, or BSE code (e.g. SNPS, COST, TRENT, DMART, NSE, 544937)..." autocomplete="off" />
+        <input id="searchInput" class="search-input" type="text" placeholder="Search ticker, company, alias, or BSE code (e.g. SNPS, COST, TRENT, DMART, NSE, 544937)..." autocomplete="off" />
         <div id="dropdown" class="dropdown"></div>
       </div>
       <div class="actions">
@@ -753,7 +753,6 @@ function switchTab(tab, el) {
   document.getElementById("stockSection").style.display = tab === "GOLD" ? "none" : "block";
   document.getElementById("goldSection").style.display = tab === "GOLD" ? "block" : "none";
   renderTable();
-  if (tab !== "GOLD") document.getElementById("searchInput").focus();
 }
 
 function editPrice(idx) {
@@ -965,13 +964,6 @@ checkOwnerMode();
 applyLiveData();
 renderTable();
 pullFromGist(false);
-
-window.addEventListener("load", () => {
-  setTimeout(() => {
-    const input = document.getElementById("searchInput");
-    if (input && activeTab !== "GOLD") input.focus();
-  }, 200);
-});
 </script>
 </body>
 </html>
