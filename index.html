@@ -347,6 +347,7 @@ const DEFAULT_GOLD = [
 
 const STORAGE_KEY = "wl_v7_state";
 let state = loadState();
+backfillCatalogFields();
 ["US", "INDIA"].forEach(m => {
   (state[m] || []).forEach(row => {
     if (row.roic === undefined) {
@@ -375,6 +376,22 @@ function loadState() {
     INDIA: CATALOG.INDIA.filter(s => s.def).map(s => ({...s})),
     GOLD: [...DEFAULT_GOLD]
   };
+}
+
+function backfillCatalogFields() {
+  let changed = false;
+  ["US", "INDIA"].forEach(m => {
+    (state[m] || []).forEach(row => {
+      if (row.roic === undefined) {
+        const match = CATALOG[m].find(c => c.ticker === row.ticker);
+        if (match && match.roic !== undefined) {
+          row.roic = match.roic;
+          changed = true;
+        }
+      }
+    });
+  });
+  return changed;
 }
 
 const GIST_API = ["https:/", "api.github.com", "gists"].join("/");
@@ -487,7 +504,8 @@ async function pullFromGist(notify = false) {
         return;
       }
       state = parsed;
-      saveState(true);
+      const updated = backfillCatalogFields();
+      saveState(!updated);
       applyLiveData();
       renderTable();
       if (notify) showToast("Pulled latest watchlist from Secret Gist!");
