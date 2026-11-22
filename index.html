@@ -129,6 +129,7 @@ th:nth-child(3) { background: var(--card2); z-index: 3; }
             <th onclick="sortBy('price')">Price</th>
             <th onclick="sortBy('revGrowth')">Rev Growth</th>
             <th onclick="sortBy('profGrowth')">Profit Growth</th>
+            <th onclick="sortBy('roic')">ROIC</th>
             <th onclick="sortBy('tangible')">Tangible Assets</th>
             <th onclick="sortBy('ncav')">Net Current Asset Val</th>
             <th onclick="sortBy('fcf')">Free Cash Flow</th>
@@ -239,6 +240,7 @@ th:nth-child(3) { background: var(--card2); z-index: 3; }
       <div class="field"><label>Current Price</label><input id="cPrice" type="number" step="any" /></div>
       <div class="field"><label>Rev Growth (%)</label><input id="cRev" type="number" step="any" /></div>
       <div class="field"><label>Profit Growth (%)</label><input id="cProf" type="number" step="any" /></div>
+<div class="field"><label>ROIC (%)</label><input id="cRoic" type="number" step="any" placeholder="22.5" /></div>
       <div class="field"><label>Tangible Assets</label><input id="cTang" placeholder="$42B" /></div>
       <div class="field"><label>NCAV</label><input id="cNcav" placeholder="-$12B" /></div>
       <div class="field"><label>Free Cash Flow</label><input id="cFcf" placeholder="$9.5B" /></div>
@@ -301,38 +303,38 @@ th:nth-child(3) { background: var(--card2); z-index: 3; }
 </div>
 
 <script>
-const CATALOG = {
-  US: [
-    { ticker:"AAPL", name:"Apple Inc.", aliases:["apple"], ex:"NASDAQ", price:342.56, revGrowth:15.06, profGrowth:20.38, tangible:"$91.82B", ncav:"-$118.60B", fcf:"$105.66B", dcf:197.51, dcfParams:{baseFcf:105.66,growth:9.5,wacc:9.0,terminal:3.0,netCash:-52.0,shares:15.10}, def:true },
-    { ticker:"MSFT", name:"Microsoft Corp.", aliases:["microsoft"], ex:"NASDAQ", price:484.52, revGrowth:17.91, profGrowth:36.20, tangible:"$304.13B", ncav:"-$66.72B", fcf:"$66.99B", dcf:415.91, dcfParams:{baseFcf:92.00,growth:13.5,wacc:8.8,terminal:3.2,netCash:28.0,shares:7.43}, def:true },
-    { ticker:"NVDA", name:"NVIDIA Corp.", aliases:["nvidia"], ex:"NASDAQ", price:125.53, revGrowth:105.90, profGrowth:128.70, tangible:"$236.16B", ncav:"$116.47B", fcf:"$127.01B", dcf:142.61, dcfParams:{baseFcf:127.01,growth:18.0,wacc:10.0,terminal:3.5,netCash:38.0,shares:24.50}, def:true },
-    { ticker:"GOOGL", name:"Alphabet Inc.", aliases:["google","alphabet"], ex:"NASDAQ", price:265.29, revGrowth:25.00, profGrowth:30.00, tangible:"$340.00B", ncav:"$45.00B", fcf:"$19.75B", dcf:222.05, dcfParams:{baseFcf:88.00,growth:12.0,wacc:9.0,terminal:3.0,netCash:84.0,shares:12.25}, def:true },
-    { ticker:"ANT", name:"Anthropic PBC", aliases:["anthropic","claude"], ex:"NASDAQ", price:88.91, revGrowth:1200.00, profGrowth:null, tangible:"$94.50B", ncav:"$88.20B", fcf:"-$4.80B", dcf:78.50, dcfParams:{baseFcf:8.50,growth:28.0,wacc:11.5,terminal:3.5,netCash:91.6,shares:4.10}, def:false },
-    { ticker:"COST", name:"Costco Wholesale Corp.", aliases:["costco","cotsco"], ex:"NASDAQ", price:1102.15, revGrowth:10.14, profGrowth:13.92, tangible:"$89.05B", ncav:"-$10.40B", fcf:"$9.38B", dcf:825.00, dcfParams:{baseFcf:9.38,growth:11.5,wacc:8.0,terminal:3.0,netCash:4.2,shares:0.443}, def:false },
-    { ticker:"SNPS", name:"Synopsys Inc.", aliases:["synopsys"], ex:"NASDAQ", price:396.17, revGrowth:42.36, profGrowth:125.07, tangible:"$9.43B", ncav:"-$9.93B", fcf:"$2.60B", dcf:455.00, dcfParams:{baseFcf:2.60,growth:16.0,wacc:9.0,terminal:3.0,netCash:-8.5,shares:0.185}, def:false },
-    { ticker:"CDNS", name:"Cadence Design Systems", aliases:["cadence"], ex:"NASDAQ", price:281.58, revGrowth:21.00, profGrowth:22.50, tangible:"$1.85B", ncav:"$0.45B", fcf:"$1.76B", dcf:315.00, dcfParams:{baseFcf:1.76,growth:15.5,wacc:8.8,terminal:3.0,netCash:0.8,shares:0.274}, def:false },
-    { ticker:"AMZN", name:"Amazon.com Inc.", aliases:["amazon"], ex:"NASDAQ", price:212.40, revGrowth:11.80, profGrowth:32.50, tangible:"$445.00B", ncav:"-$38.20B", fcf:"$48.90B", dcf:245.00, dcfParams:{baseFcf:78.00,growth:15.0,wacc:9.2,terminal:3.0,netCash:12.0,shares:10.50}, def:false },
-    { ticker:"META", name:"Meta Platforms Inc.", aliases:["meta","facebook"], ex:"NASDAQ", price:598.10, revGrowth:19.40, profGrowth:28.10, tangible:"$182.50B", ncav:"$41.20B", fcf:"$52.10B", dcf:685.00, dcfParams:{baseFcf:52.10,growth:14.0,wacc:9.2,terminal:3.0,netCash:42.0,shares:2.53}, def:false },
-    { ticker:"TSLA", name:"Tesla Inc.", aliases:["tesla"], ex:"NASDAQ", price:258.40, revGrowth:14.20, profGrowth:18.60, tangible:"$96.40B", ncav:"$24.10B", fcf:"$6.85B", dcf:195.00, dcfParams:{baseFcf:12.50,growth:20.0,wacc:10.5,terminal:3.5,netCash:26.0,shares:3.21}, def:false },
-    { ticker:"AVGO", name:"Broadcom Inc.", aliases:["broadcom"], ex:"NASDAQ", price:184.20, revGrowth:38.50, profGrowth:44.20, tangible:"$52.30B", ncav:"-$48.90B", fcf:"$24.80B", dcf:218.00, dcfParams:{baseFcf:28.50,growth:16.0,wacc:9.2,terminal:3.0,netCash:-54.0,shares:4.68}, def:false },
-    { ticker:"BRK.B", name:"Berkshire Hathaway", aliases:["berkshire"], ex:"NYSE", price:468.90, revGrowth:9.40, profGrowth:12.10, tangible:"$985.00B", ncav:"$215.00B", fcf:"$34.20B", dcf:540.00, dcfParams:{baseFcf:34.20,growth:8.5,wacc:8.2,terminal:2.8,netCash:280.0,shares:2.15}, def:false },
-    { ticker:"V", name:"Visa Inc.", aliases:["visa"], ex:"NYSE", price:312.60, revGrowth:10.20, profGrowth:13.40, tangible:"$38.90B", ncav:"$8.40B", fcf:"$20.40B", dcf:365.00, dcfParams:{baseFcf:20.40,growth:11.5,wacc:8.5,terminal:3.0,netCash:-4.5,shares:1.98}, def:false }
+const CATALOG={
+  US:[
+    {ticker:"AAPL",name:"Apple Inc.",aliases:["apple"],ex:"NASDAQ",price:342.56,revGrowth:15.06,profGrowth:20.38,roic:54.2,tangible:"$91.82B",ncav:"-$118.60B",fcf:"$105.66B",dcf:197.51,dcfParams:{baseFcf:105.66,growth:9.5,wacc:9.0,terminal:3.0,netCash:-52,shares:15.1},def:true},
+    {ticker:"MSFT",name:"Microsoft Corp.",aliases:["microsoft"],ex:"NASDAQ",price:484.52,revGrowth:17.91,profGrowth:36.20,roic:31.8,tangible:"$304.13B",ncav:"-$66.72B",fcf:"$66.99B",dcf:415.91,dcfParams:{baseFcf:92,growth:13.5,wacc:8.8,terminal:3.2,netCash:28,shares:7.43},def:true},
+    {ticker:"NVDA",name:"NVIDIA Corp.",aliases:["nvidia"],ex:"NASDAQ",price:125.53,revGrowth:105.90,profGrowth:128.70,roic:78.5,tangible:"$236.16B",ncav:"$116.47B",fcf:"$127.01B",dcf:142.61,dcfParams:{baseFcf:127.01,growth:18,wacc:10,terminal:3.5,netCash:38,shares:24.5},def:true},
+    {ticker:"GOOGL",name:"Alphabet Inc.",aliases:["google","alphabet"],ex:"NASDAQ",price:265.29,revGrowth:25.00,profGrowth:30.00,roic:28.4,tangible:"$340.00B",ncav:"$45.00B",fcf:"$19.75B",dcf:222.05,dcfParams:{baseFcf:88,growth:12,wacc:9,terminal:3,netCash:84,shares:12.25},def:true},
+    {ticker:"ANT",name:"Anthropic PBC",aliases:["anthropic","claude"],ex:"NASDAQ",price:88.91,revGrowth:1200.00,profGrowth:null,roic:null,tangible:"$94.50B",ncav:"$88.20B",fcf:"-$4.80B",dcf:78.50,dcfParams:{baseFcf:8.5,growth:28,wacc:11.5,terminal:3.5,netCash:91.6,shares:4.1},def:false},
+    {ticker:"COST",name:"Costco Wholesale Corp.",aliases:["costco","cotsco"],ex:"NASDAQ",price:1102.15,revGrowth:10.14,profGrowth:13.92,roic:29.5,tangible:"$89.05B",ncav:"-$10.40B",fcf:"$9.38B",dcf:825.00,dcfParams:{baseFcf:9.38,growth:11.5,wacc:8,terminal:3,netCash:4.2,shares:0.443},def:false},
+    {ticker:"SNPS",name:"Synopsys Inc.",aliases:["synopsys"],ex:"NASDAQ",price:396.17,revGrowth:42.36,profGrowth:125.07,roic:14.8,tangible:"$9.43B",ncav:"-$9.93B",fcf:"$2.60B",dcf:455.00,dcfParams:{baseFcf:2.6,growth:16,wacc:9,terminal:3,netCash:-8.5,shares:0.185},def:false},
+    {ticker:"CDNS",name:"Cadence Design Systems",aliases:["cadence"],ex:"NASDAQ",price:281.58,revGrowth:21.00,profGrowth:22.50,roic:25.4,tangible:"$1.85B",ncav:"$0.45B",fcf:"$1.76B",dcf:315.00,dcfParams:{baseFcf:1.76,growth:15.5,wacc:8.8,terminal:3,netCash:0.8,shares:0.274},def:false},
+    {ticker:"AMZN",name:"Amazon.com Inc.",aliases:["amazon"],ex:"NASDAQ",price:212.40,revGrowth:11.80,profGrowth:32.50,roic:16.9,tangible:"$445.00B",ncav:"-$38.20B",fcf:"$48.90B",dcf:245.00,dcfParams:{baseFcf:78,growth:15,wacc:9.2,terminal:3,netCash:12,shares:10.5},def:false},
+    {ticker:"META",name:"Meta Platforms Inc.",aliases:["meta","facebook"],ex:"NASDAQ",price:598.10,revGrowth:19.40,profGrowth:28.10,roic:31.2,tangible:"$182.50B",ncav:"$41.20B",fcf:"$52.10B",dcf:685.00,dcfParams:{baseFcf:52.1,growth:14,wacc:9.2,terminal:3,netCash:42,shares:2.53},def:false},
+    {ticker:"TSLA",name:"Tesla Inc.",aliases:["tesla"],ex:"NASDAQ",price:258.40,revGrowth:14.20,profGrowth:18.60,roic:12.4,tangible:"$96.40B",ncav:"$24.10B",fcf:"$6.85B",dcf:195.00,dcfParams:{baseFcf:12.5,growth:20,wacc:10.5,terminal:3.5,netCash:26,shares:3.21},def:false},
+    {ticker:"AVGO",name:"Broadcom Inc.",aliases:["broadcom"],ex:"NASDAQ",price:184.20,revGrowth:38.50,profGrowth:44.20,roic:18.6,tangible:"$52.30B",ncav:"-$48.90B",fcf:"$24.80B",dcf:218.00,dcfParams:{baseFcf:28.5,growth:16,wacc:9.2,terminal:3,netCash:-54,shares:4.68},def:false},
+    {ticker:"BRK.B",name:"Berkshire Hathaway",aliases:["berkshire"],ex:"NYSE",price:468.90,revGrowth:9.40,profGrowth:12.10,roic:11.5,tangible:"$985.00B",ncav:"$215.00B",fcf:"$34.20B",dcf:540.00,dcfParams:{baseFcf:34.2,growth:8.5,wacc:8.2,terminal:2.8,netCash:280,shares:2.15},def:false},
+    {ticker:"V",name:"Visa Inc.",aliases:["visa"],ex:"NYSE",price:312.60,revGrowth:10.20,profGrowth:13.40,roic:36.8,tangible:"$38.90B",ncav:"$8.40B",fcf:"$20.40B",dcf:365.00,dcfParams:{baseFcf:20.4,growth:11.5,wacc:8.5,terminal:3,netCash:-4.5,shares:1.98},def:false}
   ],
-  INDIA: [
-    { ticker:"RELIANCE", name:"Reliance Industries", aliases:["ril","reliance"], ex:"NSE / BSE", price:1377.50, revGrowth:29.84, profGrowth:40.64, tangible:"₹7,80,000 Cr", ncav:"-₹2,45,000 Cr", fcf:"₹69,200 Cr", dcf:1550.87, dcfParams:{baseFcf:69200,growth:13.5,wacc:10.5,terminal:4.5,netCash:-115000,shares:1353.2}, def:true },
-    { ticker:"TCS", name:"Tata Consultancy Services", aliases:["tcs","tata consultancy"], ex:"NSE / BSE", price:2379.50, revGrowth:11.23, profGrowth:7.41, tangible:"₹1,18,500 Cr", ncav:"₹72,715 Cr", fcf:"₹48,500 Cr", dcf:3313.99, dcfParams:{baseFcf:48500,growth:10.5,wacc:10.0,terminal:4.5,netCash:48000,shares:361.8}, def:true },
-    { ticker:"INFY", name:"Infosys Ltd.", aliases:["infosys","infy"], ex:"NSE / BSE", price:1108.80, revGrowth:10.69, profGrowth:6.23, tangible:"₹85,200 Cr", ncav:"₹51,000 Cr", fcf:"₹31,998 Cr", dcf:1903.07, dcfParams:{baseFcf:31998,growth:10.5,wacc:10.0,terminal:4.5,netCash:32000,shares:415.2}, def:true },
-    { ticker:"HDFCBANK", name:"HDFC Bank Ltd.", aliases:["hdfc","hdfc bank"], ex:"NSE / BSE", price:817.30, revGrowth:9.35, profGrowth:5.55, tangible:"₹5,86,059 Cr", ncav:"N/A (Bank)", fcf:"₹76,026 Cr", dcf:1315.56, dcfParams:{baseFcf:76026,growth:13.0,wacc:10.8,terminal:4.5,netCash:0,shares:1524.0}, def:true },
-    { ticker:"NSE", name:"National Stock Exchange of India", aliases:["nse","544937","national stock exchange"], ex:"BSE: 544937", price:2220.30, revGrowth:-3.15, profGrowth:-15.47, tangible:"₹31,429 Cr", ncav:"-₹19,093 Cr", fcf:"₹22,081 Cr", dcf:1980.00, dcfParams:{baseFcf:12500,growth:14.0,wacc:10.5,terminal:4.5,netCash:18500,shares:247.5}, def:false },
-    { ticker:"BSE", name:"BSE Ltd.", aliases:["bse","bombay stock exchange"], ex:"NSE", price:3755.70, revGrowth:34.10, profGrowth:44.90, tangible:"₹4,820 Cr", ncav:"₹2,150 Cr", fcf:"₹1,420 Cr", dcf:3250.00, dcfParams:{baseFcf:1420,growth:18.0,wacc:10.8,terminal:4.5,netCash:2400,shares:13.54}, def:false },
-    { ticker:"TRENT", name:"Trent Ltd. (Westside / Zudio)", aliases:["trent","zudio","westside"], ex:"NSE / BSE", price:3256.10, revGrowth:17.16, profGrowth:11.18, tangible:"₹11,850 Cr", ncav:"-₹2,640 Cr", fcf:"₹1,067 Cr", dcf:2680.00, dcfParams:{baseFcf:1850,growth:22.0,wacc:10.5,terminal:5.0,netCash:450,shares:35.55}, def:false },
-    { ticker:"DMART", name:"Avenue Supermarts (DMart)", aliases:["dmart","d-mart","avenue supermarts"], ex:"NSE / BSE", price:3490.00, revGrowth:15.88, profGrowth:10.14, tangible:"₹28,940 Cr", ncav:"₹4,120 Cr", fcf:"₹1,180 Cr", dcf:2890.00, dcfParams:{baseFcf:3450,growth:18.5,wacc:10.2,terminal:4.8,netCash:1200,shares:65.07}, def:false },
-    { ticker:"ICICIBANK", name:"ICICI Bank Ltd.", aliases:["icici"], ex:"NSE / BSE", price:1295.40, revGrowth:14.20, profGrowth:15.80, tangible:"₹4,92,000 Cr", ncav:"N/A (Bank)", fcf:"₹49,800 Cr", dcf:1540.00, dcfParams:{baseFcf:49800,growth:14.0,wacc:10.8,terminal:4.5,netCash:0,shares:704.5}, def:false },
-    { ticker:"ITC", name:"ITC Ltd.", aliases:["itc"], ex:"NSE / BSE", price:488.60, revGrowth:8.90, profGrowth:7.40, tangible:"₹64,300 Cr", ncav:"₹28,400 Cr", fcf:"₹17,900 Cr", dcf:585.00, dcfParams:{baseFcf:17900,growth:10.0,wacc:9.8,terminal:4.2,netCash:26500,shares:1248.5}, def:false },
-    { ticker:"TATAMOTORS", name:"Tata Motors Ltd.", aliases:["tata motors"], ex:"NSE / BSE", price:842.00, revGrowth:12.60, profGrowth:24.80, tangible:"₹1,68,500 Cr", ncav:"-₹42,100 Cr", fcf:"₹24,600 Cr", dcf:1095.00, dcfParams:{baseFcf:24600,growth:11.0,wacc:11.0,terminal:4.0,netCash:-18000,shares:368.0}, def:false },
-    { ticker:"BHARTIARTL", name:"Bharti Airtel Ltd.", aliases:["airtel","bharti"], ex:"NSE / BSE", price:1645.00, revGrowth:16.80, profGrowth:48.20, tangible:"₹2,45,000 Cr", ncav:"-₹88,400 Cr", fcf:"₹32,400 Cr", dcf:1890.00, dcfParams:{baseFcf:32400,growth:15.5,wacc:10.5,terminal:4.5,netCash:-125000,shares:569.2}, def:false },
-    { ticker:"BAJFINANCE", name:"Bajaj Finance Ltd.", aliases:["bajaj finance"], ex:"NSE / BSE", price:7120.00, revGrowth:24.50, profGrowth:21.20, tangible:"₹3,42,000 Cr", ncav:"N/A (NBFC)", fcf:"₹18,400 Cr", dcf:8950.00, dcfParams:{baseFcf:18400,growth:19.0,wacc:11.0,terminal:4.8,netCash:0,shares:61.9}, def:false },
-    { ticker:"SUNPHARMA", name:"Sun Pharmaceutical", aliases:["sun pharma"], ex:"NSE / BSE", price:1825.00, revGrowth:11.40, profGrowth:16.90, tangible:"₹58,400 Cr", ncav:"₹24,800 Cr", fcf:"₹11,200 Cr", dcf:2110.00, dcfParams:{baseFcf:11200,growth:13.0,wacc:10.0,terminal:4.5,netCash:14500,shares:239.9}, def:false }
+  INDIA:[
+    {ticker:"RELIANCE",name:"Reliance Industries",aliases:["ril","reliance"],ex:"NSE / BSE",price:1377.50,revGrowth:29.84,profGrowth:40.64,roic:9.8,tangible:"₹7,80,000 Cr",ncav:"-₹2,45,000 Cr",fcf:"₹69,200 Cr",dcf:1550.87,dcfParams:{baseFcf:69200,growth:13.5,wacc:10.5,terminal:4.5,netCash:-115000,shares:1353.2},def:true},
+    {ticker:"TCS",name:"Tata Consultancy Services",aliases:["tcs","tata consultancy"],ex:"NSE / BSE",price:2379.50,revGrowth:11.23,profGrowth:7.41,roic:46.5,tangible:"₹1,18,500 Cr",ncav:"₹72,715 Cr",fcf:"₹48,500 Cr",dcf:3313.99,dcfParams:{baseFcf:48500,growth:10.5,wacc:10,terminal:4.5,netCash:48000,shares:361.8},def:true},
+    {ticker:"INFY",name:"Infosys Ltd.",aliases:["infosys","infy"],ex:"NSE / BSE",price:1108.80,revGrowth:10.69,profGrowth:6.23,roic:32.1,tangible:"₹85,200 Cr",ncav:"₹51,000 Cr",fcf:"₹31,998 Cr",dcf:1903.07,dcfParams:{baseFcf:31998,growth:10.5,wacc:10,terminal:4.5,netCash:32000,shares:415.2},def:true},
+    {ticker:"HDFCBANK",name:"HDFC Bank Ltd.",aliases:["hdfc","hdfc bank"],ex:"NSE / BSE",price:817.30,revGrowth:9.35,profGrowth:5.55,roic:14.2,tangible:"₹5,86,059 Cr",ncav:"N/A (Bank)",fcf:"₹76,026 Cr",dcf:1315.56,dcfParams:{baseFcf:76026,growth:13,wacc:10.8,terminal:4.5,netCash:0,shares:1524},def:true},
+    {ticker:"NSE",name:"National Stock Exchange of India",aliases:["nse","544937","national stock exchange"],ex:"BSE: 544937",price:2220.30,revGrowth:-3.15,profGrowth:-15.47,roic:38.4,tangible:"₹31,429 Cr",ncav:"-₹19,093 Cr",fcf:"₹22,081 Cr",dcf:1980.00,dcfParams:{baseFcf:12500,growth:14,wacc:10.5,terminal:4.5,netCash:18500,shares:247.5},def:false},
+    {ticker:"BSE",name:"BSE Ltd.",aliases:["bse","bombay stock exchange"],ex:"NSE",price:3755.70,revGrowth:34.10,profGrowth:44.90,roic:24.6,tangible:"₹4,820 Cr",ncav:"₹2,150 Cr",fcf:"₹1,420 Cr",dcf:3250.00,dcfParams:{baseFcf:1420,growth:18,wacc:10.8,terminal:4.5,netCash:2400,shares:13.54},def:false},
+    {ticker:"TRENT",name:"Trent Ltd. (Westside / Zudio)",aliases:["trent","zudio","westside"],ex:"NSE / BSE",price:3256.10,revGrowth:17.16,profGrowth:11.18,roic:26.8,tangible:"₹11,850 Cr",ncav:"-₹2,640 Cr",fcf:"₹1,067 Cr",dcf:2680.00,dcfParams:{baseFcf:1850,growth:22,wacc:10.5,terminal:5,netCash:450,shares:35.55},def:false},
+    {ticker:"DMART",name:"Avenue Supermarts (DMart)",aliases:["dmart","d-mart","avenue supermarts"],ex:"NSE / BSE",price:3490.00,revGrowth:15.88,profGrowth:10.14,roic:16.4,tangible:"₹28,940 Cr",ncav:"₹4,120 Cr",fcf:"₹1,180 Cr",dcf:2890.00,dcfParams:{baseFcf:3450,growth:18.5,wacc:10.2,terminal:4.8,netCash:1200,shares:65.07},def:false},
+    {ticker:"ICICIBANK",name:"ICICI Bank Ltd.",aliases:["icici"],ex:"NSE / BSE",price:1295.40,revGrowth:14.20,profGrowth:15.80,roic:15.6,tangible:"₹4,92,000 Cr",ncav:"N/A (Bank)",fcf:"₹49,800 Cr",dcf:1540.00,dcfParams:{baseFcf:49800,growth:14,wacc:10.8,terminal:4.5,netCash:0,shares:704.5},def:false},
+    {ticker:"ITC",name:"ITC Ltd.",aliases:["itc"],ex:"NSE / BSE",price:488.60,revGrowth:8.90,profGrowth:7.40,roic:28.9,tangible:"₹64,300 Cr",ncav:"₹28,400 Cr",fcf:"₹17,900 Cr",dcf:585.00,dcfParams:{baseFcf:17900,growth:10,wacc:9.8,terminal:4.2,netCash:26500,shares:1248.5},def:false},
+    {ticker:"TATAMOTORS",name:"Tata Motors Ltd.",aliases:["tata motors"],ex:"NSE / BSE",price:842.00,revGrowth:12.60,profGrowth:24.80,roic:18.2,tangible:"₹1,68,500 Cr",ncav:"-₹42,100 Cr",fcf:"₹24,600 Cr",dcf:1095.00,dcfParams:{baseFcf:24600,growth:11,wacc:11,terminal:4,netCash:-18000,shares:368},def:false},
+    {ticker:"BHARTIARTL",name:"Bharti Airtel Ltd.",aliases:["airtel","bharti"],ex:"NSE / BSE",price:1645.00,revGrowth:16.80,profGrowth:48.20,roic:13.4,tangible:"₹2,45,000 Cr",ncav:"-₹88,400 Cr",fcf:"₹32,400 Cr",dcf:1890.00,dcfParams:{baseFcf:32400,growth:15.5,wacc:10.5,terminal:4.5,netCash:-125000,shares:569.2},def:false},
+    {ticker:"BAJFINANCE",name:"Bajaj Finance Ltd.",aliases:["bajaj finance"],ex:"NSE / BSE",price:7120.00,revGrowth:24.50,profGrowth:21.20,roic:16.8,tangible:"₹3,42,000 Cr",ncav:"N/A (NBFC)",fcf:"₹18,400 Cr",dcf:8950.00,dcfParams:{baseFcf:18400,growth:19,wacc:11,terminal:4.8,netCash:0,shares:61.9},def:false},
+    {ticker:"SUNPHARMA",name:"Sun Pharmaceutical",aliases:["sun pharma"],ex:"NSE / BSE",price:1825.00,revGrowth:11.40,profGrowth:16.90,roic:17.5,tangible:"₹58,400 Cr",ncav:"₹24,800 Cr",fcf:"₹11,200 Cr",dcf:2110.00,dcfParams:{baseFcf:11200,growth:13,wacc:10,terminal:4.5,netCash:14500,shares:239.9},def:false}
   ]
 };
 
@@ -345,6 +347,15 @@ const DEFAULT_GOLD = [
 
 const STORAGE_KEY = "wl_v7_state";
 let state = loadState();
+["US", "INDIA"].forEach(m => {
+  (state[m] || []).forEach(row => {
+    if (row.roic === undefined) {
+      const match = CATALOG[m].find(c => c.ticker === row.ticker);
+      if (match) row.roic = match.roic;
+    }
+  });
+});
+
 let activeTab = "US";
 let selected = new Set();
 let lastDeleted = null;
@@ -572,7 +583,8 @@ function renderTable() {
       <td><strong>${s.ticker}</strong> <span class="badge-ex">${s.ex}</span><div style="font-size:0.78rem;color:var(--muted)">${s.name}</div></td>
       <td class="editable" title="Click to edit price" onclick="editPrice(${idx})">${fmtCur(s.price, activeTab)}</td>
       <td class="${s.revGrowth >= 0 ? 'pos' : 'neg'}">${s.revGrowth != null ? (s.revGrowth >= 0 ? '+' : '') + s.revGrowth.toFixed(2) + '%' : 'N/A'}</td>
-      <td class="${s.profGrowth >= 0 ? 'pos' : 'neg'}">${s.profGrowth != null ? (s.profGrowth >= 0 ? '+' : '') + s.profGrowth.toFixed(2) + '%' : 'N/A'}</td>
+      <td class="${s.profGrowth>=0?"pos":"neg"}">${s.profGrowth!=null?(s.profGrowth>=0?"+":"")+s.profGrowth.toFixed(2)+"%":"N/A"}</td>
+      <td class="${s.roic>=15?"pos":(s.roic<0?"neg":"")}">${s.roic!=null?s.roic.toFixed(1)+"%":"N/A"}</td>
       <td>${s.tangible}</td>
       <td>${s.ncav}</td>
       <td>${s.fcf}</td>
@@ -903,6 +915,7 @@ function saveCustomStock() {
     price,
     revGrowth: parseFloat(document.getElementById("cRev").value) || 0,
     profGrowth: parseFloat(document.getElementById("cProf").value) || 0,
+    roic: document.getElementById("cRoic").value !== "" ? parseFloat(document.getElementById("cRoic").value) : null,
     tangible: document.getElementById("cTang").value.trim() || "N/A",
     ncav: document.getElementById("cNcav").value.trim() || "N/A",
     fcf: document.getElementById("cFcf").value.trim() || "N/A",
