@@ -743,7 +743,8 @@ function recalcDcfModal() {
   }
   err.style.display = "none";
   const mos = val > 0 ? ((val - s.price) / val) * 100 : -100;
-  const sig = mos >= 20 ? "BUY" : (mos >= 0 ? "HOLD" : "SELL");
+  const buyThreshold = activeTab === "US" ? 25 : 20;
+  const sig = mos >= buyThreshold ? "BUY" : (mos >= 0 ? "HOLD" : "SELL");
   document.getElementById("prevDcf").textContent = fmtCur(val, activeTab);
   const mosEl = document.getElementById("prevMos");
   mosEl.textContent = `${mos >= 0 ? "+" : ""}${mos.toFixed(1)}% (${sig})`;
