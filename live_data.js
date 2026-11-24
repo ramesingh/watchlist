@@ -1,20 +1,20 @@
 window.LIVE_WATCHLIST_DATA = {
-  "updated_at": "21 Nov 2026, 12:17 PM IST",
+  "updated_at": "24 Nov 2026, 12:26 AM IST",
   "us_prices": {
-    "AAPL": 342.56,
-    "AMZN": 246.82,
-    "ANT": 88.91,
-    "AVGO": 304.41,
-    "BRK.B": 570.0,
-    "CDNS": 281.58,
-    "COST": 1102.15,
-    "GOOGL": 265.29,
-    "META": 560.84,
-    "MSFT": 484.52,
-    "NVDA": 125.53,
-    "SNPS": 396.17,
-    "TSLA": 345.82,
-    "V": 401.87
+    "AAPL": 349.08,
+    "AMZN": 255.39,
+    "ANT": 87.64,
+    "AVGO": 313.55,
+    "BRK.B": 572.36,
+    "CDNS": 304.13,
+    "COST": 1097.91,
+    "GOOGL": 282.1,
+    "META": 597.6,
+    "MSFT": 492.5,
+    "NVDA": 165.05,
+    "SNPS": 426.99,
+    "TSLA": 385.46,
+    "V": 409.4
   },
   "india_prices": {
     "RELIANCE": 1377.5,
@@ -32,6 +32,11 @@ window.LIVE_WATCHLIST_DATA = {
   },
   "gold_sessions": [
     {
+      "date": "23/11/2026",
+      "am": 125123,
+      "pm": 124945
+    },
+    {
       "date": "20/11/2026",
       "am": 123584,
       "pm": 123893
@@ -45,11 +50,6 @@ window.LIVE_WATCHLIST_DATA = {
       "date": "18/11/2026",
       "am": 131505,
       "pm": 131164
-    },
-    {
-      "date": "17/11/2026",
-      "am": 134418,
-      "pm": 134201
     }
   ]
 };
