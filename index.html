@@ -595,7 +595,8 @@ async function refreshLivePrices() {
 
 function calcMetrics(s) {
   const mos = s.dcf > 0 ? ((s.dcf - s.price) / s.dcf) * 100 : -100;
-  const signal = mos >= 20 ? "BUY" : (mos >= 0 ? "HOLD" : "SELL");
+  const buyThreshold = activeTab === "US" ? 25 : 20;
+  const signal = mos >= buyThreshold ? "BUY" : (mos >= 0 ? "HOLD" : "SELL");
   return { mos, signal };
 }
 
