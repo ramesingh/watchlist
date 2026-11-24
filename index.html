@@ -529,7 +529,7 @@ function applyLiveData() {
   saveState();
 }
 
-function refreshLivePrices() {
+/*function refreshLivePrices() {
   const btn = document.getElementById("refreshBtn");
   btn.disabled = true;
   btn.textContent = "↻ Refreshing...";
@@ -556,6 +556,107 @@ function refreshLivePrices() {
   };
 
   document.head.appendChild(freshScript);
+}*/
+async function fetchYahooQuote(yahooSymbol) {
+  const url = `https://yahoo.com{encodeURIComponent(yahooSymbol)}?interval=1d&range=1d`;
+  const proxies = [
+    `https://corsproxy.io{encodeURIComponent(url)}`,
+    `https://allorigins.win{encodeURIComponent(url)}`
+  ];
+  for (const proxyUrl of proxies) {
+    try {
+      const res = await fetch(proxyUrl);
+      if (!res.ok) continue;
+      const data = await res.json();
+      const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
+      if (price && !isNaN(price)) return Number(price.toFixed(2));
+    } catch (e) {}
+  }
+  return null;
+}
+
+async function fetchLiveGold10g() {
+  const [goldOz, usdInr] = await Promise.all([
+    fetchYahooQuote("GC=F"),
+    fetchYahooQuote("USDINR=X")
+  ]);
+  if (!goldOz || !usdInr) return null;
+  // Convert USD/troy oz -> INR per 10g (including ~6% Indian import duty & bullion premium, excl. 3% GST)
+  return Math.round(((goldOz * usdInr) / 31.1034768) * 10 * 1.06);
+}
+
+async function refreshLivePrices() {
+  const btn = document.getElementById("refreshBtn");
+  const pill = document.getElementById("syncStatus");
+  btn.disabled = true;
+  btn.textContent = "↻ Fetching Live...";
+  pill.textContent = "Fetching US, India & Gold live prices...";
+
+  const YAHOO_MAP = {
+    "BRK.B": "BRK-B",
+    "TATAMOTORS": "TATAMOTORS.NS",
+    "NSE": "544937.BO"
+  };
+
+  let updatedCount = 0;
+
+  // 1. Refresh ALL US stocks in table + catalog
+  const usTasks = (state.US || []).map(async row => {
+    if (row.ticker === "ANT") return;
+    const sym = YAHOO_MAP[row.ticker] || row.ticker;
+    const live = await fetchYahooQuote(sym);
+    if (live !== null) {
+      row.price = live;
+      const cat = CATALOG.US.find(c => c.ticker === row.ticker);
+      if (cat) cat.price = live;
+      updatedCount++;
+    }
+  });
+
+  // 2. Refresh ALL India stocks in table + catalog (.NS default, fallback .BO)
+  const inTasks = (state.INDIA || []).map(async row => {
+    const sym = YAHOO_MAP[row.ticker] || `${row.ticker}.NS`;
+    let live = await fetchYahooQuote(sym);
+    if (live === null && !YAHOO_MAP[row.ticker]) {
+      live = await fetchYahooQuote(`${row.ticker}.BO`);
+    }
+    if (live !== null) {
+      row.price = live;
+      const cat = CATALOG.INDIA.find(c => c.ticker === row.ticker);
+      if (cat) cat.price = live;
+      updatedCount++;
+    }
+  });
+
+  // 3. Refresh Live 24K Gold (INR / 10g)
+  const goldTask = fetchLiveGold10g().then(liveGold => {
+    if (liveGold !== null) {
+      const today = new Date().toLocaleDateString("en-GB"); // DD/MM/YYYY
+      if (!state.GOLD) state.GOLD = [];
+      if (state.GOLD.length > 0 && state.GOLD[0].date === today) {
+        state.GOLD[0].pm = liveGold;
+      } else {
+        state.GOLD.unshift({ date: today, am: liveGold, pm: liveGold });
+      }
+      updatedCount++;
+    }
+  });
+
+  await Promise.all([...usTasks, ...inTasks, goldTask]);
+
+  const nowStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  if (updatedCount > 0) {
+    saveState(); // Saves locally for any visitor, AND syncs to Gist if you are signed in
+    renderTable(); // Re-renders active tab (US, India, or Gold) immediately
+    pill.textContent = `Live Yahoo Sync • ${nowStr}`;
+    showToast(`Refreshed ${updatedCount} live prices (US, India & 24K Gold)!`);
+  } else {
+    pill.textContent = `Sync Failed • ${nowStr}`;
+    showToast("Could not reach Yahoo Finance — check connection or try again");
+  }
+
+  btn.disabled = false;
+  btn.textContent = "↻ Refresh Live Prices";
 }
 
 function calcMetrics(s) {
