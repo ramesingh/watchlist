@@ -529,7 +529,7 @@ function applyLiveData() {
   saveState();
 }
 
-function reloadLiveDataScript() {
+/*function reloadLiveDataScript() {
   return new Promise(resolve => {
     const oldScript = document.getElementById("liveDataScript");
     if (oldScript) oldScript.remove();
@@ -587,6 +587,93 @@ async function refreshLivePrices() {
     // Public visitors without a token reload the latest committed live_data.js immediately
     const ok = await reloadLiveDataScript();
     showToast(ok ? "Loaded latest live_data.js!" : "No live_data.js found yet");
+  }
+
+  btn.disabled = false;
+  btn.textContent = "↻ Refresh Live Prices";
+}*/
+async function fetchLatestLiveDataJs() {
+  // Fetch directly from ://githubusercontent.com to bypass GitHub Pages 60s CDN cache
+  const rawUrl = "https://://githubusercontent.com/ramesingh/watchlist/main/live_data.js?t=" + Date.now();
+  try {
+    const res = await fetch(rawUrl);
+    if (res.ok) {
+      const code = await res.text();
+      const s = document.createElement("script");
+      s.textContent = code;
+      document.head.appendChild(s);
+      applyLiveData();
+      renderTable();
+      return true;
+    }
+  } catch (e) {}
+
+  // Fallback to local/Pages live_data.js
+  return new Promise(resolve => {
+    const oldScript = document.getElementById("liveDataScript");
+    if (oldScript) oldScript.remove();
+    const s = document.createElement("script");
+    s.id = "liveDataScript";
+    s.src = "live_data.js?t=" + Date.now();
+    s.onload = () => { applyLiveData(); renderTable(); resolve(true); };
+    s.onerror = () => resolve(false);
+    document.head.appendChild(s);
+  });
+}
+
+async function refreshLivePrices() {
+  const btn = document.getElementById("refreshBtn");
+  const pill = document.getElementById("syncStatus");
+  const cfg = getGistCfg();
+
+  btn.disabled = true;
+  btn.textContent = "↻ Refreshing...";
+
+  if (cfg && cfg.token) {
+    try {
+      pill.textContent = "Starting cloud update...";
+      const baseApi = ["https:/", "://github.com", "repos", "ramesingh", "watchlist", "actions"].join("/");
+      const headers = {
+        "Accept": "application/vnd.github+json",
+        "Authorization": "token " + cfg.token
+      };
+
+      const startTime = Date.now() - 5000;
+      const res = await fetch(baseApi + "/workflows/update.yml/dispatches", {
+        method: "POST",
+        headers: headers,
+        body: JSON.stringify({ ref: "main" })
+      });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+
+      // Poll workflow status every 2.5s and finish the instant it completes
+      let elapsed = 0;
+      let done = false;
+      while (elapsed < 60000 && !done) {
+        await new Promise(r => setTimeout(r, 2500));
+        elapsed += 2500;
+        pill.textContent = "Updating in cloud (" + (elapsed / 1000).toFixed(1) + "s)...";
+
+        const runsRes = await fetch(baseApi + "/workflows/update.yml/runs?per_page=1&t=" + Date.now(), { headers: headers });
+        if (runsRes.ok) {
+          const runsData = await runsRes.json();
+          const latest = runsData && runsData.workflow_runs && runsData.workflow_runs.at(0);
+          if (latest && new Date(latest.created_at).getTime() >= startTime && latest.status === "completed") {
+            done = true;
+          }
+        }
+      }
+
+      await fetchLatestLiveDataJs();
+      await pullFromGist(false);
+      showToast("Live prices updated in " + (elapsed / 1000).toFixed(1) + "s!");
+    } catch (err) {
+      await fetchLatestLiveDataJs();
+      showToast("Cloud trigger failed (" + err.message + ") • Reloaded latest data");
+    }
+  } else {
+    const ok = await fetchLatestLiveDataJs();
+    showToast(ok ? "Loaded latest live prices!" : "No live_data.js found yet");
   }
 
   btn.disabled = false;
