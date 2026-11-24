@@ -1,5 +1,5 @@
 window.LIVE_WATCHLIST_DATA = {
-  "updated_at": "24 Nov 2026, 08:06 AM IST",
+  "updated_at": "24 Nov 2026, 12:03 PM IST",
   "us_prices": {
     "AAPL": 349.08,
     "AMZN": 255.39,
@@ -26,9 +26,9 @@ window.LIVE_WATCHLIST_DATA = {
     "DMART": 3405.4,
     "ICICIBANK": 1585.5,
     "ITC": 301.0,
-    "BHARTIARTL": 2161.7,
+    "BHARTIARTL": 2128.5,
     "BAJFINANCE": 1095.5,
-    "SUNPHARMA": 1884.9
+    "SUNPHARMA": 1860.0
   },
   "gold_sessions": [
     {
