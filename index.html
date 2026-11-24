@@ -558,7 +558,7 @@ async function refreshLivePrices() {
   if (cfg && cfg.token) {
     try {
       pill.textContent = "Triggering GitHub Actions...";
-      const dispatchUrl = "https://github.com";
+      const dispatchUrl = ["https:/", "api.github.com", "repos", "ramesingh", "watchlist", "actions", "workflows", "update.yml", "dispatches"].join("/");
       const res = await fetch(dispatchUrl, {
         method: "POST",
         headers: {
