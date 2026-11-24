@@ -529,72 +529,10 @@ function applyLiveData() {
   saveState();
 }
 
-/*function reloadLiveDataScript() {
-  return new Promise(resolve => {
-    const oldScript = document.getElementById("liveDataScript");
-    if (oldScript) oldScript.remove();
-    const s = document.createElement("script");
-    s.id = "liveDataScript";
-    s.src = "live_data.js?t=" + Date.now();
-    s.onload = () => {
-      applyLiveData();
-      renderTable();
-      resolve(true);
-    };
-    s.onerror = () => resolve(false);
-    document.head.appendChild(s);
-  });
-}
-
-async function refreshLivePrices() {
-  const btn = document.getElementById("refreshBtn");
-  const pill = document.getElementById("syncStatus");
-  const cfg = getGistCfg(); // Reuses your existing token from ☁ Sync!
-
-  btn.disabled = true;
-  btn.textContent = "↻ Refreshing...";
-
-  // If you are signed into ☁ Sync on this device, trigger update.yml in the cloud first
-  if (cfg && cfg.token) {
-    try {
-      pill.textContent = "Triggering GitHub Actions...";
-      const dispatchUrl = ["https:/", "api.github.com", "repos", "ramesingh", "watchlist", "actions", "workflows", "update.yml", "dispatches"].join("/");
-      const res = await fetch(dispatchUrl, {
-        method: "POST",
-        headers: {
-          "Accept": "application/vnd.github+json",
-          "Authorization": "token " + cfg.token
-        },
-        body: JSON.stringify({ ref: "main" })
-      });
-
-      if (!res.ok) throw new Error("HTTP " + res.status);
-
-      // Wait ~35 seconds for update_watchlist.py to finish & commit live_data.js
-      for (let sec = 35; sec > 0; sec -= 5) {
-        pill.textContent = "Updating prices in cloud (" + sec + "s)...";
-        await new Promise(r => setTimeout(r, 5000));
-      }
-
-      await reloadLiveDataScript();
-      await pullFromGist(false);
-      showToast("All US, India & IBJA Gold prices updated from cloud!");
-    } catch (err) {
-      await reloadLiveDataScript();
-      showToast("Cloud trigger failed (" + err.message + ") • Reloaded latest live_data.js");
-    }
-  } else {
-    // Public visitors without a token reload the latest committed live_data.js immediately
-    const ok = await reloadLiveDataScript();
-    showToast(ok ? "Loaded latest live_data.js!" : "No live_data.js found yet");
-  }
-
-  btn.disabled = false;
-  btn.textContent = "↻ Refresh Live Prices";
-}*/
 async function fetchLatestLiveDataJs() {
   // Fetch directly from ://githubusercontent.com to bypass GitHub Pages 60s CDN cache
-  const rawUrl = "https://://githubusercontent.com/ramesingh/watchlist/main/live_data.js?t=" + Date.now();
+  const rawUrl = window.location.protocol + "//raw.githubusercontent" + ".com/ramesingh/watchlist/main/live_data.js?t=" + Date.now();
+
   try {
     const res = await fetch(rawUrl);
     if (res.ok) {
@@ -632,7 +570,7 @@ async function refreshLivePrices() {
   if (cfg && cfg.token) {
     try {
       pill.textContent = "Starting cloud update...";
-      const baseApi = ["https:/", "://github.com", "repos", "ramesingh", "watchlist", "actions"].join("/");
+      const baseApi = window.location.protocol + "//api." + "github.com/repos/ramesingh/watchlist/actions";
       const headers = {
         "Accept": "application/vnd.github+json",
         "Authorization": "token " + cfg.token
