@@ -1,5 +1,5 @@
 window.LIVE_WATCHLIST_DATA = {
-  "updated_at": "26 Nov 2026, 06:54 AM IST",
+  "updated_at": "26 Nov 2026, 07:48 AM IST",
   "us_prices": {
     "AAPL": 355.58,
     "AMZN": 244.43,
@@ -17,18 +17,18 @@ window.LIVE_WATCHLIST_DATA = {
     "V": 424.39
   },
   "india_prices": {
-    "RELIANCE": 1378.9,
-    "TCS": 2560.0,
-    "INFY": 1165.5,
-    "HDFCBANK": 870.45,
-    "BSE": 3950.5,
-    "TRENT": 3281.4,
-    "DMART": 3544.4,
-    "ICICIBANK": 1626.0,
-    "ITC": 308.25,
-    "BHARTIARTL": 2123.8,
-    "BAJFINANCE": 1119.35,
-    "SUNPHARMA": 1921.0
+    "RELIANCE": 1373.9,
+    "TCS": 2571.5,
+    "INFY": 1161.3,
+    "HDFCBANK": 867.85,
+    "BSE": 3974.6,
+    "TRENT": 3276.9,
+    "DMART": 3529.8,
+    "ICICIBANK": 1618.7,
+    "ITC": 307.25,
+    "BHARTIARTL": 2118.8,
+    "BAJFINANCE": 1113.7,
+    "SUNPHARMA": 1921.1
   },
   "gold_sessions": [
     {
