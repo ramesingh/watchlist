@@ -1,5 +1,5 @@
 window.LIVE_WATCHLIST_DATA = {
-  "updated_at": "25 Nov 2026, 10:02 PM IST",
+  "updated_at": "26 Nov 2026, 12:18 AM IST",
   "us_prices": {
     "AAPL": 355.58,
     "AMZN": 244.43,
@@ -32,6 +32,11 @@ window.LIVE_WATCHLIST_DATA = {
   },
   "gold_sessions": [
     {
+      "date": "25/11/2026",
+      "am": 121310,
+      "pm": 121038
+    },
+    {
       "date": "23/11/2026",
       "am": 125123,
       "pm": 124945
@@ -45,11 +50,6 @@ window.LIVE_WATCHLIST_DATA = {
       "date": "19/11/2026",
       "am": 129985,
       "pm": 129531
-    },
-    {
-      "date": "18/11/2026",
-      "am": 131505,
-      "pm": 131164
     }
   ]
 };
