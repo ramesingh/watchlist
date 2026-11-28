@@ -1,5 +1,5 @@
 window.LIVE_WATCHLIST_DATA = {
-  "updated_at": "28 Nov 2026, 06:43 AM IST",
+  "updated_at": "28 Nov 2026, 10:34 AM IST",
   "us_prices": {
     "AAPL": 358.54,
     "AMZN": 254.12,
@@ -23,7 +23,7 @@ window.LIVE_WATCHLIST_DATA = {
     "HDFCBANK": 857.25,
     "BSE": 3945.0,
     "TRENT": 3273.0,
-    "DMART": 3533.0,
+    "DMART": 3541.3,
     "ICICIBANK": 1593.4,
     "ITC": 304.7,
     "BHARTIARTL": 2067.9,
