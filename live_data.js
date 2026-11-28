@@ -1,5 +1,5 @@
 window.LIVE_WATCHLIST_DATA = {
-  "updated_at": "28 Nov 2026, 02:54 AM IST",
+  "updated_at": "28 Nov 2026, 06:43 AM IST",
   "us_prices": {
     "AAPL": 358.54,
     "AMZN": 254.12,
