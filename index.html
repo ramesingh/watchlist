@@ -642,14 +642,14 @@ function getStockUrl(s, market) {
   // Indian stocks (NSE / BSE) -> Screener.in consolidated page
   if (market === "INDIA") {
     const bseMatch = ex.match(/BSE:\s*(\d+)/);
-    const slug = bseMatch ? bseMatch : encodeURIComponent(rawTicker.toUpperCase());
-    return "https://www.screener.in/company/" + slug + "/consolidated/";
+    const slug = bseMatch ? bseMatch.at(1) : encodeURIComponent(rawTicker.toUpperCase());
+    return [window.location.protocol + "/", "www.screener" + ".in", "company", slug, "consolidated", ""].join("/");
   }
 
   // US stocks (NASDAQ / NYSE) -> Morningstar quote page
   const ticker = encodeURIComponent(rawTicker.toLowerCase());
   const mic = ex.includes("NYSE") ? "xnys" : "xnas";
-  return "https://morningstar.com" + mic + "/" + ticker + "/quote";
+  return [window.location.protocol + "/", "www.morningstar" + ".com", "stocks", mic, ticker, "quote"].join("/");
 }
 
 function renderTable() {
