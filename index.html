@@ -80,6 +80,8 @@ th:nth-child(3) { background: var(--card2); z-index: 3; }
   .dcf-preview { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin: 14px 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; text-align: center; }
   .dcf-preview .lbl { font-size: 0.75rem; color: var(--muted); }
   .dcf-preview .val { font-size: 1.15rem; font-weight: 700; margin-top: 4px; }
+  .ticker-link { color: var(--text); text-decoration: none; font-weight: 700; }
+  .ticker-link:hover { color: var(--accent); text-decoration: underline; }
 </style>
 </head>
 <body>
@@ -633,6 +635,23 @@ function fmtCur(val, m) {
   return (m === "US" ? "$" : "₹") + Number(val).toLocaleString(m === "US" ? "en-US" : "en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function getStockUrl(s, market) {
+  const rawTicker = s.ticker.trim();
+  const ex = (s.ex || "").toUpperCase();
+
+  // Indian stocks (NSE / BSE) -> Screener.in consolidated page
+  if (market === "INDIA") {
+    const bseMatch = ex.match(/BSE:\s*(\d+)/);
+    const slug = bseMatch ? bseMatch : encodeURIComponent(rawTicker.toUpperCase());
+    return "https://www.screener.in/company/" + slug + "/consolidated/";
+  }
+
+  // US stocks (NASDAQ / NYSE) -> Morningstar quote page
+  const ticker = encodeURIComponent(rawTicker.toLowerCase());
+  const mic = ex.includes("NYSE") ? "xnys" : "xnas";
+  return "https://morningstar.com" + mic + "/" + ticker + "/quote";
+}
+
 function renderTable() {
   if (activeTab === "GOLD") return renderGold();
   const tbody = document.getElementById("tableBody");
@@ -663,7 +682,11 @@ function renderTable() {
         </div>
       </td>
       <td><input type="checkbox" ${selected.has(s.ticker) ? "checked" : ""} onchange="toggleRow('${s.ticker}', this.checked)" /></td>
-      <td><strong>${s.ticker}</strong> <span class="badge-ex">${s.ex}</span><div style="font-size:0.78rem;color:var(--muted)">${s.name}</div></td>
+      <td>
+         <a class="ticker-link" href="${getStockUrl(s, activeTab)}" target="_blank" rel="noopener noreferrer" title="Open ${s.ticker} on ${activeTab === 'INDIA' ? 'Screener.in' : 'Morningstar'}">${s.ticker}</a>
+         <span class="badge-ex">${s.ex}</span>
+         <div style="font-size:.78rem;color:var(--muted)">${s.name}</div>
+      </td>
       <td class="editable" title="Click to edit price" onclick="editPrice(${idx})">${fmtCur(s.price, activeTab)}</td>
       <td class="${s.revGrowth >= 0 ? 'pos' : 'neg'}">${s.revGrowth != null ? (s.revGrowth >= 0 ? '+' : '') + s.revGrowth.toFixed(2) + '%' : 'N/A'}</td>
       <td class="${s.profGrowth>=0?"pos":"neg"}">${s.profGrowth!=null?(s.profGrowth>=0?"+":"")+s.profGrowth.toFixed(2)+"%":"N/A"}</td>
