@@ -132,10 +132,10 @@ th:nth-child(3) { background: var(--card2); z-index: 3; }
             <th onclick="sortBy('revGrowth')">Rev Growth</th>
             <th onclick="sortBy('profGrowth')">Profit Growth</th>
             <th onclick="sortBy('roic')">ROIC</th>
-            <th onclick="sortBy('magic')" title="Sort by Joel Greenblatt Magic Formula (ROC Rank + Earnings Yield Rank)">Magic Formula ✎</th>
             <th onclick="sortBy('tangible')">Tangible Assets</th>
             <th onclick="sortBy('ncav')">Net Current Asset Val</th>
             <th onclick="sortBy('fcf')">Free Cash Flow</th>
+            <th onclick="sortBy('magic')" title="Sort by Joel Greenblatt Magic Formula (ROC Rank + Earnings Yield Rank)">Magic Formula ✎</th>
             <th onclick="sortBy('dcf')">DCF Value ✎</th>
             <th onclick="sortBy('mos')">Margin of Safety</th>
             <th onclick="sortBy('signal')">Advice</th>
@@ -851,14 +851,14 @@ function renderTable() {
       <td class="${s.revGrowth >= 0 ? 'pos' : 'neg'}">${s.revGrowth != null ? (s.revGrowth >= 0 ? '+' : '') + s.revGrowth.toFixed(2) + '%' : 'N/A'}</td>
       <td class="${s.profGrowth>=0?"pos":"neg"}">${s.profGrowth!=null?(s.profGrowth>=0?"+":"")+s.profGrowth.toFixed(2)+"%":"N/A"}</td>
       <td class="${s.roic>=15?"pos":(s.roic<0?"neg":"")}">${s.roic!=null?s.roic.toFixed(1)+"%":"N/A"}</td>
+      <td>${s.tangible}</td>
+      <td>${s.ncav}</td>
+      <td>${s.fcf}</td>
       <td class="editable" onclick="openMagicModal(${idx})" title="Click to view/edit EBIT, Net Working Capital & Net Fixed Assets">
   ${mf && mf.valid
     ? `<strong>#${mf.rank}</strong> <span style="font-size:.76rem;color:var(--muted)">(ROC ${mf.roc.toFixed(0)}% • EY ${mf.ey.toFixed(1)}%)</span>`
     : `<span style="color:var(--muted)">N/A (Bank)</span>`}
 </td>
-      <td>${s.tangible}</td>
-      <td>${s.ncav}</td>
-      <td>${s.fcf}</td>
       <td><span class="dcf-link" title="Click to adjust WACC, growth & DCF parameters" onclick="openDcfModal(${idx})">${fmtCur(s.dcf, activeTab)} ✎</span></td>
       <td class="${mos >= 0 ? 'pos' : 'neg'}">${(mos >= 0 ? '+' : '') + mos.toFixed(1)}%</td>
       <td><span class="sig sig-${signal}">${signal}</span></td>
@@ -1209,15 +1209,6 @@ function saveGoldRow() {
 }
 
 let sortAsc = true;
-/*function sortBy(key) {
-  sortAsc = !sortAsc;
-  state[activeTab].sort((a, b) => {
-    const va = key === "mos" ? calcMetrics(a).mos : a[key];
-    const vb = key === "mos" ? calcMetrics(b).mos : b[key];
-    return (va > vb ? 1 : -1) * (sortAsc ? 1 : -1);
-  });
-  saveState(); renderTable();
-}*/
 function sortBy(k) {
   if (k === "magic") {
     const magicMap = computeMagicFormulaMap(state[activeTab]);
