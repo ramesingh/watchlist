@@ -132,6 +132,7 @@ th:nth-child(3) { background: var(--card2); z-index: 3; }
             <th onclick="sortBy('revGrowth')">Rev Growth</th>
             <th onclick="sortBy('profGrowth')">Profit Growth</th>
             <th onclick="sortBy('roic')">ROIC</th>
+            <th onclick="sortBy('magic')" title="Sort by Joel Greenblatt Magic Formula (ROC Rank + Earnings Yield Rank)">Magic Formula ✎</th>
             <th onclick="sortBy('tangible')">Tangible Assets</th>
             <th onclick="sortBy('ncav')">Net Current Asset Val</th>
             <th onclick="sortBy('fcf')">Free Cash Flow</th>
@@ -166,6 +167,33 @@ th:nth-child(3) { background: var(--card2); z-index: 3; }
         </thead>
         <tbody id="goldBody"></tbody>
       </table>
+    </div>
+  </div>
+</div>
+
+<div id="magicModal" class="modal-bg">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h3 style="margin:0" id="magicTitle">Magic Formula Inputs</h3>
+      <button class="btn" style="padding:4px 9px" onclick="document.getElementById('magicModal').style.display='none'">✕</button>
+    </div>
+    <div style="font-size:.8rem;color:var(--muted);margin-top:4px">
+      Joel Greenblatt Formula: ROC = EBIT / (NWC + Net Fixed Assets) • EY = EBIT / Enterprise Value
+    </div>
+    <div class="form-grid">
+      <div class="field"><label id="lblMagicEbit">Trailing EBIT</label><input id="mEbit" type="number" step="any" oninput="recalcMagicModal()" /></div>
+      <div class="field"><label id="lblMagicNwc">Net Working Capital</label><input id="mNwc" type="number" step="any" oninput="recalcMagicModal()" /></div>
+      <div class="field"><label id="lblMagicNfa">Net Fixed Assets (PP&amp;E)</label><input id="mNfa" type="number" step="any" oninput="recalcMagicModal()" /></div>
+      <div class="field"><label>Exclude as Bank / Financial?</label><input id="mBank" type="checkbox" style="width:auto;margin-top:8px" onchange="recalcMagicModal()" /></div>
+    </div>
+    <div class="dcf-preview">
+      <div><div class="lbl">Return on Capital</div><div class="val" style="color:var(--buy)" id="prevRoc">—</div></div>
+      <div><div class="lbl">Earnings Yield</div><div class="val" style="color:var(--accent)" id="prevEy">—</div></div>
+      <div><div class="lbl">Enterprise Value</div><div class="val" id="prevEv">—</div></div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
+      <button class="btn" onclick="document.getElementById('magicModal').style.display='none'">Cancel</button>
+      <button class="btn" style="background:var(--accent);color:#0f172a" onclick="applyMagicModal()">Save Inputs</button>
     </div>
   </div>
 </div>
@@ -344,6 +372,44 @@ const CATALOG={
   ]
 };
 
+const MAGIC_DEFAULTS = {
+  // US ($ Billions): { ebit, nwc, nfa, isBank }
+  "AAPL": { ebit: 154.9, nwc: 18.5, nfa: 46.2 },
+  "MSFT": { ebit: 155.2, nwc: 42.0, nfa: 158.0 },
+  "NVDA": { ebit: 197.6, nwc: 48.0, nfa: 12.5 },
+  "GOOGL": { ebit: 155.0, nwc: 38.0, nfa: 175.0 },
+  "ANT": { ebit: -3.5, nwc: 4.2, nfa: 2.8 },
+  "COST": { ebit: 10.4, nwc: 2.1, nfa: 31.5 },
+  "SNPS": { ebit: 2.4, nwc: 1.2, nfa: 1.4 },
+  "CDNS": { ebit: 1.85, nwc: 0.7, nfa: 0.65 },
+  "AMZN": { ebit: 98.0, nwc: 14.0, nfa: 278.0 },
+  "META": { ebit: 89.3, nwc: 24.5, nfa: 132.0 },
+  "TSLA": { ebit: 11.2, nwc: 8.5, nfa: 38.0 },
+  "AVGO": { ebit: 26.8, nwc: 6.4, nfa: 8.2 },
+  "BRK.B": { ebit: 48.5, nwc: 45.0, nfa: 215.0 },
+  "V": { ebit: 25.4, nwc: 5.2, nfa: 3.8 },
+  "INTC": { ebit: -1.8, nwc: 14.5, nfa: 104.0 },
+  "TSM": { ebit: 54.2, nwc: 22.0, nfa: 108.0 },
+  "KO": { ebit: 14.8, nwc: 3.4, nfa: 10.2 },
+  "AXP": { isBank: true },
+
+  // INDIA (₹ Crores): { ebit, nwc, nfa, isBank }
+  "RELIANCE": { ebit: 145000, nwc: 48000, nfa: 685000 },
+  "TCS": { ebit: 70350, nwc: 44500, nfa: 32872 },
+  "INFY": { ebit: 42500, nwc: 31000, nfa: 24500 },
+  "HDFCBANK": { isBank: true },
+  "NSE": { ebit: 15200, nwc: 3800, nfa: 2400 },
+  "BSE": { ebit: 1850, nwc: 950, nfa: 420 },
+  "TRENT": { ebit: 2450, nwc: 1450, nfa: 6800 },
+  "DMART": { ebit: 4150, nwc: 2800, nfa: 16400 },
+  "ICICIBANK": { isBank: true },
+  "ITC": { ebit: 26200, nwc: 14200, nfa: 28500 },
+  "TATAMOTORS": { ebit: 38500, nwc: 18000, nfa: 132000 },
+  "BHARTIARTL": { ebit: 58000, nwc: -12000, nfa: 218000 },
+  "BAJFINANCE": { isBank: true },
+  "SUNPHARMA": { ebit: 14200, nwc: 18500, nfa: 16800 }
+};
+
 const DEFAULT_GOLD = [
   { date:"20/11/2026", am:123584, pm:123893 },
   { date:"19/11/2026", am:129985, pm:129531 },
@@ -394,6 +460,10 @@ function backfillCatalogFields() {
           row.roic = match.roic;
           changed = true;
         }
+      }
+      if (!row.magicParams && MAGIC_DEFAULTS[row.ticker]) {
+        row.magicParams = { ...MAGIC_DEFAULTS[row.ticker] };
+        changed = true;
       }
     });
   });
@@ -651,14 +721,104 @@ function getStockUrl(s, market) {
   const mic = ex.includes("NYSE") ? "xnys" : "xnas";
   return [window.location.protocol + "/", "www.morningstar" + ".com", "stocks", mic, ticker, "quote"].join("/");
 }
+let magicEditIdx = null;
+
+function computeMagicFormulaMap(list) {
+  const raw = list.map(s => {
+    const mp = s.magicParams || MAGIC_DEFAULTS[s.ticker];
+    const dp = s.dcfParams || { netCash: 0, shares: 1 };
+    if (!mp || mp.isBank || mp.ebit == null) return { ticker: s.ticker, valid: false };
+
+    const capEmployed = (Number(mp.nwc) || 0) + (Number(mp.nfa) || 0);
+    const ev = (Number(s.price) * (Number(dp.shares) || 1)) - (Number(dp.netCash) || 0);
+    if (capEmployed <= 0 || ev <= 0) return { ticker: s.ticker, valid: false };
+
+    const roc = (Number(mp.ebit) / capEmployed) * 100;
+    const ey = (Number(mp.ebit) / ev) * 100;
+    return { ticker: s.ticker, valid: true, roc, ey, ev };
+  });
+
+  const validItems = raw.filter(x => x.valid);
+  const byRoc = [...validItems].sort((a, b) => b.roc - a.roc);
+  const byEy = [...validItems].sort((a, b) => b.ey - a.ey);
+
+  validItems.forEach(item => {
+    item.rocRank = byRoc.findIndex(x => x.ticker === item.ticker) + 1;
+    item.eyRank = byEy.findIndex(x => x.ticker === item.ticker) + 1;
+    item.score = item.rocRank + item.eyRank;
+  });
+
+  const byMagic = [...validItems].sort((a, b) => a.score - b.score || b.ey - a.ey);
+  const map = {};
+  raw.forEach(item => {
+    if (item.valid) {
+      item.rank = byMagic.findIndex(x => x.ticker === item.ticker) + 1;
+    }
+    map[item.ticker] = item;
+  });
+  return map;
+}
+
+function openMagicModal(idx) {
+  magicEditIdx = idx;
+  const s = state[activeTab][idx];
+  const u = activeTab === "US" ? "$ Billions" : "₹ Crores";
+  document.getElementById("magicTitle").textContent = "Magic Formula • " + s.ticker + " (" + s.name + ")";
+  document.getElementById("lblMagicEbit").textContent = "Trailing EBIT (" + u + ")";
+  document.getElementById("lblMagicNwc").textContent = "Net Working Capital (" + u + ")";
+  document.getElementById("lblMagicNfa").textContent = "Net Fixed Assets (" + u + ")";
+  const mp = s.magicParams || MAGIC_DEFAULTS[s.ticker] || { ebit: 0, nwc: 0, nfa: 0, isBank: false };
+  document.getElementById("mEbit").value = mp.ebit != null ? mp.ebit : "";
+  document.getElementById("mNwc").value = mp.nwc != null ? mp.nwc : "";
+  document.getElementById("mNfa").value = mp.nfa != null ? mp.nfa : "";
+  document.getElementById("mBank").checked = !!mp.isBank;
+  recalcMagicModal();
+  document.getElementById("magicModal").style.display = "flex";
+}
+
+function recalcMagicModal() {
+  const s = state[activeTab][magicEditIdx];
+  const dp = s.dcfParams || { netCash: 0, shares: 1 };
+  const isBank = document.getElementById("mBank").checked;
+  const ebit = parseFloat(document.getElementById("mEbit").value) || 0;
+  const nwc = parseFloat(document.getElementById("mNwc").value) || 0;
+  const nfa = parseFloat(document.getElementById("mNfa").value) || 0;
+  const ev = (Number(s.price) * (Number(dp.shares) || 1)) - (Number(dp.netCash) || 0);
+  const unit = activeTab === "US" ? "$" : "₹";
+  const suf = activeTab === "US" ? "B" : " Cr";
+
+  document.getElementById("prevEv").textContent = ev > 0 ? unit + ev.toFixed(1) + suf : "N/A";
+  if (isBank || (nwc + nfa) <= 0 || ev <= 0) {
+    document.getElementById("prevRoc").textContent = isBank ? "Bank (Excl.)" : "N/A";
+    document.getElementById("prevEy").textContent = isBank ? "Bank (Excl.)" : "N/A";
+    return;
+  }
+  document.getElementById("prevRoc").textContent = ((ebit / (nwc + nfa)) * 100).toFixed(1) + "%";
+  document.getElementById("prevEy").textContent = ((ebit / ev) * 100).toFixed(1) + "%";
+}
+
+function applyMagicModal() {
+  const s = state[activeTab][magicEditIdx];
+  s.magicParams = {
+    isBank: document.getElementById("mBank").checked,
+    ebit: parseFloat(document.getElementById("mEbit").value) || 0,
+    nwc: parseFloat(document.getElementById("mNwc").value) || 0,
+    nfa: parseFloat(document.getElementById("mNfa").value) || 0
+  };
+  saveState();
+  document.getElementById("magicModal").style.display = "none";
+  renderTable();
+}
 
 function renderTable() {
   if (activeTab === "GOLD") return renderGold();
   const tbody = document.getElementById("tableBody");
   tbody.innerHTML = "";
+  const magicMap = computeMagicFormulaMap(state[activeTab]);
   state[activeTab].forEach((s, idx) => {
     const { mos, signal } = calcMetrics(s);
     const tr = document.createElement("tr");
+    const mf = magicMap[s.ticker];
     tr.draggable = true;
     tr.addEventListener("dragstart", () => { dragSrcIdx = idx; tr.style.opacity = "0.5"; });
     tr.addEventListener("dragend", () => { tr.style.opacity = "1"; document.querySelectorAll("tr").forEach(r => r.classList.remove("drag-over")); });
@@ -691,6 +851,11 @@ function renderTable() {
       <td class="${s.revGrowth >= 0 ? 'pos' : 'neg'}">${s.revGrowth != null ? (s.revGrowth >= 0 ? '+' : '') + s.revGrowth.toFixed(2) + '%' : 'N/A'}</td>
       <td class="${s.profGrowth>=0?"pos":"neg"}">${s.profGrowth!=null?(s.profGrowth>=0?"+":"")+s.profGrowth.toFixed(2)+"%":"N/A"}</td>
       <td class="${s.roic>=15?"pos":(s.roic<0?"neg":"")}">${s.roic!=null?s.roic.toFixed(1)+"%":"N/A"}</td>
+      <td class="editable" onclick="openMagicModal(${idx})" title="Click to view/edit EBIT, Net Working Capital & Net Fixed Assets">
+  ${mf && mf.valid
+    ? `<strong>#${mf.rank}</strong> <span style="font-size:.76rem;color:var(--muted)">(ROC ${mf.roc.toFixed(0)}% • EY ${mf.ey.toFixed(1)}%)</span>`
+    : `<span style="color:var(--muted)">N/A (Bank)</span>`}
+</td>
       <td>${s.tangible}</td>
       <td>${s.ncav}</td>
       <td>${s.fcf}</td>
@@ -1044,7 +1209,7 @@ function saveGoldRow() {
 }
 
 let sortAsc = true;
-function sortBy(key) {
+/*function sortBy(key) {
   sortAsc = !sortAsc;
   state[activeTab].sort((a, b) => {
     const va = key === "mos" ? calcMetrics(a).mos : a[key];
@@ -1052,6 +1217,29 @@ function sortBy(key) {
     return (va > vb ? 1 : -1) * (sortAsc ? 1 : -1);
   });
   saveState(); renderTable();
+}*/
+function sortBy(k) {
+  if (k === "magic") {
+    const magicMap = computeMagicFormulaMap(state[activeTab]);
+    state[activeTab].sort((a, b) => {
+      const ma = magicMap[a.ticker];
+      const mb = magicMap[b.ticker];
+      const ra = ma && ma.valid ? ma.rank : 9999;
+      const rb = mb && mb.valid ? mb.rank : 9999;
+      return ra - rb;
+    });
+    saveState();
+    renderTable();
+    return;
+  }
+  sortAsc = !sortAsc;
+  state[activeTab].sort((a, b) => {
+    const va = k === "mos" ? calcMetrics(a).mos : a[k];
+    const vb = k === "mos" ? calcMetrics(b).mos : b[k];
+    return (va > vb ? 1 : -1) * (sortAsc ? 1 : -1);
+  });
+  saveState();
+  renderTable();
 }
 
 function exportJSON() {
